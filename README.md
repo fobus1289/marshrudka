@@ -1,8 +1,9 @@
+```go
 package main
 
 import (
 	"log"
-	"marshrudka"
+	"github.com/fobus1289/marshrudka"
 	"net/http"
 	"strconv"
 )
@@ -48,3 +49,5 @@ func main() {
 
 	log.Fatalln(http.ListenAndServe(":8080", drive))
 }
+
+```
