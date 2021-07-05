@@ -51,3 +51,92 @@ func main() {
 }
 
 ```
+
+```go
+package main
+
+import (
+	"errors"
+	"math/rand"
+	"github.com/fobus1289/marshrudka"
+	"log"
+	"net/http"
+)
+
+type User struct {
+	Id       int    `json:"id"`
+	Name     string `json:"name"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Age      int    `json:"age"`
+}
+
+type IAuthService interface {
+	SignIn(username, password string) (*User, error)
+	SignUp(user *User) (*User, error)
+}
+
+type AuthService struct {
+	
+}
+
+func (a *AuthService) SignIn(username, password string) (*User, error) {
+
+	//logic ....
+	if false {
+		return nil, errors.New("username or password is incorrect")
+	}
+
+	return &User{
+		Id:       rand.Int() % 100,
+		Username: username,
+		Password: password,
+	}, nil
+}
+
+func (a *AuthService) SignUp(user *User) (*User, error) {
+
+	//logic ....
+	if false {
+		return nil, errors.New("username or password is incorrect")
+	}
+
+	return user, nil
+}
+
+func main() {
+
+	drive := marshrudka.NewDrive(nil)
+
+	var IAuth *IAuthService
+	var authService = &AuthService{}
+
+	drive.Register(IAuth, authService)
+	//or
+	drive.Register(authService)
+
+	//other services can be similarly registered
+	drive.Register(here)
+
+	drive.GET("/",
+		func(auth IAuthService, r *http.Request) interface{} {
+			username := r.URL.Query().Get("username")
+			password := r.URL.Query().Get("password")
+
+			user, err := auth.SignIn(username, password)
+
+			if err != nil {
+				return marshrudka.
+					Response(400).
+					Throw(marshrudka.TEXT_PLAIN, err.Error())
+			}
+
+			return marshrudka.Response(200).Json(user)
+		},
+	)
+	
+	log.Fatalln(http.ListenAndServe(":8080", drive))
+}
+
+
+```
