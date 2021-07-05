@@ -117,13 +117,8 @@ func (d *drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 						res = response.Data
 					}
 
-					if !isPrimitive(valueOf.Kind()) {
-						data, _ := json.Marshal(res)
-						_, _ = responseWriter.Write(data)
-					} else {
-						_, _ = responseWriter.Write([]byte(res.(string)))
-					}
-
+					data, _ := json.Marshal(res)
+					_, _ = responseWriter.Write(data)
 				}
 
 				params[valueOf.Type()] = valueOf

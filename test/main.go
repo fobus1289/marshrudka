@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/fobus1289/marshrudka"
 	"log"
-	"marshrudka"
 	"net/http"
 	"strconv"
 )
