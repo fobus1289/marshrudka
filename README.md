@@ -1,3 +1,7 @@
+```
+go get github.com/fobus1289/marshrudka
+```
+
 ```go
 package main
 
@@ -77,7 +81,6 @@ type IAuthService interface {
 }
 
 type AuthService struct {
-	
 }
 
 func (a *AuthService) SignIn(username, password string) (*User, error) {
@@ -134,7 +137,7 @@ func main() {
 			return marshrudka.Response(200).Json(user)
 		},
 	)
-	
+
 	log.Fatalln(http.ListenAndServe(":8080", drive))
 }
 
