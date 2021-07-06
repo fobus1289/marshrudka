@@ -1,4 +1,4 @@
-package marshrudka
+package minibusv2
 
 import (
 	"log"

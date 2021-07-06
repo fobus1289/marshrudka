@@ -1,4 +1,4 @@
-package marshrudka
+package minibusv2
 
 import (
 	"net/http"
@@ -6,17 +6,12 @@ import (
 )
 
 type router struct {
-	path       string
-	uri        *regexp.Regexp
-	method     string
-	middleware []func(responseWriter http.ResponseWriter, request *http.Request) bool
-	actions    actions
-	notFound   func(responseWriter http.ResponseWriter, request *http.Request)
-}
-
-func (r *router) Middleware(middlewares func(responseWriter http.ResponseWriter, request *http.Request) bool) *router {
-	r.middleware = append(r.middleware, middlewares)
-	return r
+	path     string
+	uri      *regexp.Regexp
+	method   string
+	params   []string
+	actions  actions
+	notFound func(responseWriter http.ResponseWriter, request *http.Request)
 }
 
 type routers []*router

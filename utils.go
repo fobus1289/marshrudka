@@ -1,4 +1,4 @@
-package marshrudka
+package minibusv2
 
 import (
 	"net/http"
@@ -51,8 +51,13 @@ func (h *_http) Throw(content string, data interface{}) *throw {
 type Request struct {
 	HttpResponseWriter http.ResponseWriter
 	HttpRequest        *http.Request
+	Params             map[string]string
 }
 
 func (r *Request) Query(key string) string {
 	return r.HttpRequest.URL.Query().Get(key)
+}
+
+func (r *Request) Param(key string) string {
+	return r.Params[key]
 }

@@ -1,4 +1,4 @@
-package marshrudka
+package minibusv2
 
 import (
 	"fmt"
@@ -125,8 +125,6 @@ func (g *group) ANY(path string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	log.Println(path)
-
 	g.drive.ANY(path, append(g.actions, handlers...)...)
 }
 
@@ -137,8 +135,6 @@ func (g *group) GET(path string, handlers ...interface{}) {
 	} else {
 		path = g.Path + path
 	}
-
-	log.Println(path)
 
 	g.drive.GET(path, append(g.actions, handlers...)...)
 }
@@ -151,8 +147,6 @@ func (g *group) POST(path string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	log.Println(path)
-
 	g.drive.POST(path, append(g.actions, handlers...)...)
 }
 
@@ -163,8 +157,6 @@ func (g *group) PUT(path string, handlers ...interface{}) {
 	} else {
 		path = g.Path + path
 	}
-
-	log.Println(path)
 
 	g.drive.PUT(path, append(g.actions, handlers...)...)
 }
@@ -177,8 +169,6 @@ func (g *group) PATCH(path string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	log.Println(path)
-
 	g.drive.PATCH(path, append(g.actions, handlers...)...)
 }
 
@@ -190,9 +180,145 @@ func (g *group) DELETE(path string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	log.Println(path)
-
 	g.drive.DELETE(path, append(g.actions, handlers...)...)
+}
+
+func parseFunc(path, method string, handlers ...interface{}) *router {
+	_actions := actions{}
+
+	for index, handler := range handlers {
+		_func := reflect.ValueOf(handler)
+
+		if _func.Kind() != reflect.Func {
+			log.Fatalln("type not supported", _func.Kind())
+		}
+
+		_action := &action{}
+
+		_funcType := _func.Type()
+
+		if (len(handlers)-1) == index && _funcType.NumOut() > 1 {
+			log.Fatalln("error end function cannot return data greater than 1:", _funcType.NumOut())
+		}
+
+		for i := 0; i < _funcType.NumIn(); i++ {
+
+			paramType := _funcType.In(i)
+
+			if isPrimitive(paramType.Kind()) && index == 0 {
+				log.Fatalln("error the first function cannot accept primitive data types:", paramType.Kind())
+			}
+
+			_action.Params = append(_action.Params, paramType)
+		}
+
+		_action.Ret = _funcType.NumOut() == 0
+
+		_action.Call = _func.Call
+
+		_actions.Add(_action)
+	}
+
+	uri, params := parseUrl(path)
+
+	log.Println(uri)
+
+	return &router{
+		path:    path,
+		params:  params,
+		method:  method,
+		uri:     uri,
+		actions: _actions,
+	}
+
+}
+
+func parseUrl(path string) (*regexp.Regexp, []string) {
+
+	if path == "" {
+		path = "/"
+	}
+
+	if strings.HasPrefix(path, "/") {
+		path = strings.TrimPrefix(path, "/")
+	}
+
+	if strings.HasSuffix(path, "/") {
+		path = strings.TrimSuffix(path, "/")
+	}
+
+	//if strings.Index(path, "*") != -1 {
+	//	//var rexp = regexp.MustCompile(`(.*)((\w+)(\.html|doc\.json|favicon-16x16\.png|favicon-32x32\.png|\.css|\.js|\.js\.map))[\?|.]*`)
+	//	index := strings.Index(path, "*")
+	//	one := path[:index]
+	//	one = strings.TrimSuffix(one, "/")
+	//	path = fmt.Sprintf(`^(/?(%s)/(\S+)?/?)$`, one)
+	//	return regexp.MustCompile(path), []string{}
+	//}
+
+	if strings.Index(path, ":") != -1 {
+
+		reg, names := pattern(path+"/", []string{})
+
+		path = strings.TrimSuffix(reg, "/")
+
+		rep := strings.Replace(path, `(\w+?)`, "", -1)
+		rep = strings.Replace(rep, `//`, "/", -1)
+
+		path = fmt.Sprintf("^((/?%s/?)|(/?%s?))$", path, rep)
+		log.Println(path)
+		return regexp.MustCompile(path), names
+	}
+
+	return regexp.MustCompile(fmt.Sprintf("^/?%s/?$", path)), []string{}
+}
+
+func pattern(path string, names []string) (string, []string) {
+
+	index := strings.Index(path, ":")
+
+	if index == -1 {
+		return path, names
+	}
+
+	hasOne := path[index:]
+	index2 := strings.Index(hasOne, "/")
+
+	if index2 == -1 {
+		return path, names
+	}
+
+	hasTwo := hasOne[:index2]
+	names = append(names, hasTwo[1:])
+	path = strings.Replace(path, hasTwo, `(\w+?)`, 1)
+
+	return pattern(path, names)
+}
+
+func isPrimitive(kind reflect.Kind) bool {
+
+	switch kind {
+	case reflect.Bool,
+		reflect.Int,
+		reflect.Int8,
+		reflect.Int16,
+		reflect.Int32,
+		reflect.Int64,
+		reflect.Uint,
+		reflect.Uint8,
+		reflect.Uint16,
+		reflect.Uint32,
+		reflect.Uint64,
+		reflect.Uintptr,
+		reflect.Float32,
+		reflect.Float64,
+		reflect.Complex64,
+		reflect.Complex128,
+		reflect.String:
+		return true
+	default:
+		return false
+	}
 }
 
 func newRegexp(url string) *regexp.Regexp {
@@ -233,74 +359,4 @@ func newRegexp(url string) *regexp.Regexp {
 	}
 
 	return _Regexp
-}
-
-func parseFunc(path, method string, handlers ...interface{}) *router {
-	_actions := actions{}
-
-	for index, handler := range handlers {
-		_func := reflect.ValueOf(handler)
-
-		if _func.Kind() != reflect.Func {
-			log.Fatalln("type not supported", _func.Kind())
-		}
-
-		_action := &action{}
-
-		_funcType := _func.Type()
-
-		if (len(handlers)-1) == index && _funcType.NumOut() > 1 {
-			log.Fatalln("error end function cannot return data greater than 1:", _funcType.NumOut())
-		}
-
-		for i := 0; i < _funcType.NumIn(); i++ {
-
-			paramType := _funcType.In(i)
-
-			if isPrimitive(paramType.Kind()) && index == 0 {
-				log.Fatalln("error the first function cannot accept primitive data types:", paramType.Kind())
-			}
-
-			_action.Params = append(_action.Params, paramType)
-		}
-
-		_action.Ret = _funcType.NumOut() == 0
-
-		_action.Call = _func.Call
-
-		_actions.Add(_action)
-	}
-
-	return &router{
-		path:    path,
-		method:  method,
-		uri:     newRegexp(path),
-		actions: _actions,
-	}
-}
-
-func isPrimitive(kind reflect.Kind) bool {
-
-	switch kind {
-	case reflect.Bool,
-		reflect.Int,
-		reflect.Int8,
-		reflect.Int16,
-		reflect.Int32,
-		reflect.Int64,
-		reflect.Uint,
-		reflect.Uint8,
-		reflect.Uint16,
-		reflect.Uint32,
-		reflect.Uint64,
-		reflect.Uintptr,
-		reflect.Float32,
-		reflect.Float64,
-		reflect.Complex64,
-		reflect.Complex128,
-		reflect.String:
-		return true
-	default:
-		return false
-	}
 }

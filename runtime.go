@@ -1,10 +1,12 @@
-package marshrudka
+package minibusv2
 
 import (
 	"encoding/json"
 	"log"
 	"net/http"
 	"reflect"
+	"strconv"
+	"strings"
 )
 
 var (
@@ -22,9 +24,9 @@ func (d *drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 
 	for _, r := range d.routers {
 
-		thisRoute := r.uri.MatchString(request.URL.Path)
+		matches := r.uri.FindStringSubmatch(request.URL.Path)
 
-		if !thisRoute {
+		if len(matches) < 1 {
 			continue
 		}
 
@@ -35,6 +37,19 @@ func (d *drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 			_, _ = responseWriter.Write(methodNotAllowed)
 			return
 		}
+
+		//if strings.Index(r.path, "*") != -1 {
+		//	log.Println(matches)
+		//	r.actions[0].Call([]reflect.Value{
+		//		reflect.ValueOf(responseWriter),
+		//		reflect.ValueOf(request),
+		//	})
+		//	return
+		//}
+
+		responseWriter.Header().Set("Cache-Control", "no-cache")
+		responseWriter.Header().Set("Accept-Encoding", "gzip, deflate, br")
+		responseWriter.Header().Set("Content-Type", TEXT_HTML)
 
 		var params = map[reflect.Type]reflect.Value{}
 
@@ -66,12 +81,30 @@ func (d *drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 				}
 
 				if reflect.DeepEqual(param, _request) {
-					value := reflect.ValueOf(&Request{
+
+					req := &Request{
 						HttpResponseWriter: responseWriter,
 						HttpRequest:        request,
-					})
+						Params:             map[string]string{},
+					}
+
+					if len(r.params) > 0 {
+						var paramIndex int
+
+						for _, match := range matches {
+							if strings.HasPrefix(match, "/") || strings.TrimSpace(match) == "" {
+								continue
+							}
+							req.Params[r.params[paramIndex]] = match
+							paramIndex++
+						}
+					}
+
+					value := reflect.ValueOf(req)
 					params[param] = value
+
 					values = append(values, value)
+
 					continue
 				}
 
@@ -102,23 +135,22 @@ func (d *drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 					var throw = valueOf.Interface().(*throw)
 					responseWriter.Header().Set("Content-Type", throw.ContentType)
 					responseWriter.WriteHeader(throw.StatusCode)
-					data, _ := json.Marshal(throw.Data)
-					_, _ = responseWriter.Write(data)
+
+					_, _ = responseWriter.Write(getPrimitiveResult(reflect.ValueOf(throw.Data)))
 					return
 				}
 
 				if len(r.actions)-1 == i {
-					var res = valueOf.Interface()
 
 					if reflect.DeepEqual(valueOf.Type(), _response) {
 						var response = valueOf.Interface().(*response)
 						responseWriter.Header().Set("Content-Type", response.ContentType)
 						responseWriter.WriteHeader(response.StatusCode)
-						res = response.Data
+						_, _ = responseWriter.Write(getPrimitiveResult(reflect.ValueOf(response.Data)))
+						return
 					}
 
-					data, _ := json.Marshal(res)
-					_, _ = responseWriter.Write(data)
+					_, _ = responseWriter.Write(getPrimitiveResult(valueOf))
 				}
 
 				params[valueOf.Type()] = valueOf
@@ -148,4 +180,70 @@ func setOther(param reflect.Type, request *http.Request) *reflect.Value {
 	val := _value.Elem()
 
 	return &val
+}
+
+func getParamValue(kind reflect.Kind, value string) reflect.Value {
+	switch kind {
+	case reflect.Bool:
+		out, _ := strconv.ParseBool(value)
+		return reflect.ValueOf(out)
+	case reflect.Int,
+		reflect.Int8,
+		reflect.Int16,
+		reflect.Int32,
+		reflect.Int64:
+		out, _ := strconv.ParseInt(value, 10, 64)
+		return reflect.ValueOf(out)
+	case reflect.Uint,
+		reflect.Uint8,
+		reflect.Uint16,
+		reflect.Uint32,
+		reflect.Uint64:
+		out, _ := strconv.ParseUint(value, 10, 64)
+		return reflect.ValueOf(out)
+	case reflect.Float32,
+		reflect.Float64:
+		out, _ := strconv.ParseFloat(value, 10)
+		return reflect.ValueOf(out)
+	}
+
+	return reflect.ValueOf(value)
+}
+
+func getPrimitiveResult(value reflect.Value) []byte {
+
+	if value.Kind() == reflect.Ptr {
+		value = value.Elem()
+	}
+
+	switch value.Kind() {
+
+	case reflect.Bool:
+		var boolBit = "false"
+		if value.Bool() {
+			boolBit = "true"
+		}
+		return []byte(boolBit)
+	case reflect.Int,
+		reflect.Int8,
+		reflect.Int16,
+		reflect.Int32,
+		reflect.Int64:
+		return []byte(strconv.FormatInt(value.Int(), 10))
+	case reflect.Uint,
+		reflect.Uint8,
+		reflect.Uint16,
+		reflect.Uint32,
+		reflect.Uint64:
+		return []byte(strconv.FormatUint(value.Uint(), 10))
+	case reflect.Float32,
+		reflect.Float64:
+		return []byte(strconv.FormatFloat(value.Float(), 'f', -1, 64))
+	case reflect.String:
+		return []byte(value.String())
+	case reflect.Struct, reflect.Slice, reflect.Interface, reflect.Map:
+		toByte, _ := json.Marshal(value.Interface())
+		return toByte
+	}
+	return nil
 }
