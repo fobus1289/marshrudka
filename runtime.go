@@ -32,6 +32,11 @@ func (d *drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 
 		isNotFound = false
 
+		if request.Method == http.MethodOptions {
+			responseWriter.WriteHeader(http.StatusNoContent)
+			return
+		}
+
 		if r.method != "ANY" && r.method != request.Method {
 			responseWriter.WriteHeader(405)
 			_, _ = responseWriter.Write(methodNotAllowed)
