@@ -1,4 +1,4 @@
-package minibusv2
+package marshrudka
 
 import (
 	"fmt"
