@@ -18,7 +18,7 @@ var (
 	methodNotAllowed = []byte("method not allowed")
 )
 
-func (d *drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
+func (d *Drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
 
 	var isNotFound = true
 

@@ -9,26 +9,26 @@ import (
 
 type services map[reflect.Type]reflect.Value
 
-type drive struct {
+type Drive struct {
 	routers
 	services
 	Logger   *log.Logger
 	handlers []interface{}
 }
 
-func NewDrive(logger *log.Logger) *drive {
+func NewDrive(logger *log.Logger) *Drive {
 
 	if logger == nil {
 		logger = log.New(os.Stdout, "Info: ", log.Ltime|log.Lshortfile)
 	}
 
-	return &drive{
+	return &Drive{
 		Logger:   logger,
 		services: map[reflect.Type]reflect.Value{},
 	}
 }
 
-func (d *drive) Group(path string, handlers ...interface{}) *group {
+func (d *Drive) Group(path string, handlers ...interface{}) *group {
 
 	if !strings.HasSuffix(path, "/") {
 		path += "/"
@@ -37,6 +37,6 @@ func (d *drive) Group(path string, handlers ...interface{}) *group {
 	return &group{
 		Path:    path,
 		actions: handlers,
-		drive:   d,
+		Drive:   d,
 	}
 }

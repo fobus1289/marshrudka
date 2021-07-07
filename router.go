@@ -23,5 +23,5 @@ func (r *routers) Add(router *router) {
 type group struct {
 	Path    string
 	actions []interface{}
-	*drive
+	*Drive
 }

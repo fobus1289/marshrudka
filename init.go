@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func (d *drive) Register(_interface interface{}, _struct ...interface{}) *drive {
+func (d *Drive) Register(_interface interface{}, _struct ...interface{}) *Drive {
 
 	if _struct == nil {
 		_structValue := reflect.ValueOf(_interface)
@@ -56,12 +56,12 @@ func implement(_interface, _struct interface{}) bool {
 	return structType.AssignableTo(interfaceType.Elem())
 }
 
-func (d *drive) Use(handlers ...interface{}) *drive {
+func (d *Drive) Use(handlers ...interface{}) *Drive {
 	d.handlers = handlers
 	return d
 }
 
-func (d *drive) checkHas() actions {
+func (d *Drive) checkHas() actions {
 	var driverActions actions
 
 	if len(d.handlers) > 0 {
@@ -71,7 +71,7 @@ func (d *drive) checkHas() actions {
 	return driverActions
 }
 
-func (d *drive) ANY(path string, handlers ...interface{}) *router {
+func (d *Drive) ANY(path string, handlers ...interface{}) *router {
 
 	_router := parseFunc(path, []string{"ANY"}, handlers...)
 
@@ -81,42 +81,42 @@ func (d *drive) ANY(path string, handlers ...interface{}) *router {
 	return _router
 }
 
-func (d *drive) GET(path string, handlers ...interface{}) *router {
+func (d *Drive) GET(path string, handlers ...interface{}) *router {
 	_router := parseFunc(path, []string{http.MethodGet}, handlers...)
 	_router.actions = append(d.checkHas(), _router.actions...)
 	d.routers.Add(_router)
 	return _router
 }
 
-func (d *drive) POST(path string, handlers ...interface{}) *router {
+func (d *Drive) POST(path string, handlers ...interface{}) *router {
 	_router := parseFunc(path, []string{http.MethodPost}, handlers)
 	_router.actions = append(d.checkHas(), _router.actions...)
 	d.routers.Add(_router)
 	return _router
 }
 
-func (d *drive) PUT(path string, handlers ...interface{}) *router {
+func (d *Drive) PUT(path string, handlers ...interface{}) *router {
 	_router := parseFunc(path, []string{http.MethodPut}, handlers...)
 	_router.actions = append(d.checkHas(), _router.actions...)
 	d.routers.Add(_router)
 	return _router
 }
 
-func (d *drive) PATCH(path string, handlers ...interface{}) *router {
+func (d *Drive) PATCH(path string, handlers ...interface{}) *router {
 	_router := parseFunc(path, []string{http.MethodPatch}, handlers...)
 	_router.actions = append(d.checkHas(), _router.actions...)
 	d.routers.Add(_router)
 	return _router
 }
 
-func (d *drive) DELETE(path string, handlers ...interface{}) *router {
+func (d *Drive) DELETE(path string, handlers ...interface{}) *router {
 	_router := parseFunc(path, []string{http.MethodDelete}, handlers...)
 	_router.actions = append(d.checkHas(), _router.actions...)
 	d.routers.Add(_router)
 	return _router
 }
 
-func (d *drive) MATCH(path string, methods []string, handlers ...interface{}) *router {
+func (d *Drive) MATCH(path string, methods []string, handlers ...interface{}) *router {
 
 	for i, method := range methods {
 		methods[i] = strings.ToUpper(method)
@@ -136,7 +136,7 @@ func (g *group) MATCH(path string, methods []string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	g.drive.MATCH(path, methods, append(g.actions, handlers...)...)
+	g.Drive.MATCH(path, methods, append(g.actions, handlers...)...)
 }
 
 func (g *group) ANY(path string, handlers ...interface{}) {
@@ -147,7 +147,7 @@ func (g *group) ANY(path string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	g.drive.ANY(path, append(g.actions, handlers...)...)
+	g.Drive.ANY(path, append(g.actions, handlers...)...)
 }
 
 func (g *group) GET(path string, handlers ...interface{}) {
@@ -158,7 +158,7 @@ func (g *group) GET(path string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	g.drive.GET(path, append(g.actions, handlers...)...)
+	g.Drive.GET(path, append(g.actions, handlers...)...)
 }
 
 func (g *group) POST(path string, handlers ...interface{}) {
@@ -169,7 +169,7 @@ func (g *group) POST(path string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	g.drive.POST(path, append(g.actions, handlers...)...)
+	g.Drive.POST(path, append(g.actions, handlers...)...)
 }
 
 func (g *group) PUT(path string, handlers ...interface{}) {
@@ -180,7 +180,7 @@ func (g *group) PUT(path string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	g.drive.PUT(path, append(g.actions, handlers...)...)
+	g.Drive.PUT(path, append(g.actions, handlers...)...)
 }
 
 func (g *group) PATCH(path string, handlers ...interface{}) {
@@ -191,7 +191,7 @@ func (g *group) PATCH(path string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	g.drive.PATCH(path, append(g.actions, handlers...)...)
+	g.Drive.PATCH(path, append(g.actions, handlers...)...)
 }
 
 func (g *group) DELETE(path string, handlers ...interface{}) {
@@ -202,7 +202,7 @@ func (g *group) DELETE(path string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	g.drive.DELETE(path, append(g.actions, handlers...)...)
+	g.Drive.DELETE(path, append(g.actions, handlers...)...)
 }
 
 func parseFunc(path string, methods []string, handlers ...interface{}) *router {
