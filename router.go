@@ -8,7 +8,7 @@ import (
 type router struct {
 	path     string
 	uri      *regexp.Regexp
-	method   string
+	method   map[string]bool
 	params   []string
 	actions  actions
 	notFound func(responseWriter http.ResponseWriter, request *http.Request)

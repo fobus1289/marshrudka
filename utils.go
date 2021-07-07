@@ -10,6 +10,8 @@ const (
 	TEXT_PLAIN = "text/plain; charset=utf-8"
 )
 
+type Stop bool
+
 type throw struct {
 	StatusCode  int
 	Data        interface{}

@@ -33,24 +33,15 @@ func (d *drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 		isNotFound = false
 
 		if request.Method == http.MethodOptions {
-			responseWriter.WriteHeader(http.StatusNoContent)
+
 			return
 		}
 
-		if r.method != "ANY" && r.method != request.Method {
+		if r.method["ANY"] && !r.method[request.Method] {
 			responseWriter.WriteHeader(405)
 			_, _ = responseWriter.Write(methodNotAllowed)
 			return
 		}
-
-		//if strings.Index(r.path, "*") != -1 {
-		//	log.Println(matches)
-		//	r.actions[0].Call([]reflect.Value{
-		//		reflect.ValueOf(responseWriter),
-		//		reflect.ValueOf(request),
-		//	})
-		//	return
-		//}
 
 		responseWriter.Header().Set("Cache-Control", "no-cache")
 		responseWriter.Header().Set("Accept-Encoding", "gzip, deflate, br")

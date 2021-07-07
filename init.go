@@ -14,7 +14,6 @@ func (d *drive) Register(_interface interface{}, _struct ...interface{}) *drive 
 	if _struct == nil {
 		_structValue := reflect.ValueOf(_interface)
 		d.services[_structValue.Type()] = _structValue
-		log.Println(d.services)
 		return d
 	}
 
@@ -66,7 +65,7 @@ func (d *drive) checkHas() actions {
 	var driverActions actions
 
 	if len(d.handlers) > 0 {
-		driverActions = parseFunc("", "", d.handlers...).actions
+		driverActions = parseFunc("", []string{}, d.handlers...).actions
 	}
 
 	return driverActions
@@ -74,7 +73,7 @@ func (d *drive) checkHas() actions {
 
 func (d *drive) ANY(path string, handlers ...interface{}) *router {
 
-	_router := parseFunc(path, "ANY", handlers...)
+	_router := parseFunc(path, []string{"ANY"}, handlers...)
 
 	_router.actions = append(d.checkHas(), _router.actions...)
 
@@ -83,38 +82,61 @@ func (d *drive) ANY(path string, handlers ...interface{}) *router {
 }
 
 func (d *drive) GET(path string, handlers ...interface{}) *router {
-	_router := parseFunc(path, http.MethodGet, handlers...)
+	_router := parseFunc(path, []string{http.MethodGet}, handlers...)
 	_router.actions = append(d.checkHas(), _router.actions...)
 	d.routers.Add(_router)
 	return _router
 }
 
 func (d *drive) POST(path string, handlers ...interface{}) *router {
-	_router := parseFunc(path, http.MethodPost, handlers)
+	_router := parseFunc(path, []string{http.MethodPost}, handlers)
 	_router.actions = append(d.checkHas(), _router.actions...)
 	d.routers.Add(_router)
 	return _router
 }
 
 func (d *drive) PUT(path string, handlers ...interface{}) *router {
-	_router := parseFunc(path, http.MethodPut, handlers...)
+	_router := parseFunc(path, []string{http.MethodPut}, handlers...)
 	_router.actions = append(d.checkHas(), _router.actions...)
 	d.routers.Add(_router)
 	return _router
 }
 
 func (d *drive) PATCH(path string, handlers ...interface{}) *router {
-	_router := parseFunc(path, http.MethodPatch, handlers...)
+	_router := parseFunc(path, []string{http.MethodPatch}, handlers...)
 	_router.actions = append(d.checkHas(), _router.actions...)
 	d.routers.Add(_router)
 	return _router
 }
 
 func (d *drive) DELETE(path string, handlers ...interface{}) *router {
-	_router := parseFunc(path, http.MethodDelete, handlers...)
+	_router := parseFunc(path, []string{http.MethodDelete}, handlers...)
 	_router.actions = append(d.checkHas(), _router.actions...)
 	d.routers.Add(_router)
 	return _router
+}
+
+func (d *drive) MATCH(path string, methods []string, handlers ...interface{}) *router {
+
+	for i, method := range methods {
+		methods[i] = strings.ToUpper(method)
+	}
+
+	_router := parseFunc(path, methods, handlers...)
+	_router.actions = append(d.checkHas(), _router.actions...)
+	d.routers.Add(_router)
+	return _router
+}
+
+func (g *group) MATCH(path string, methods []string, handlers ...interface{}) {
+
+	if strings.HasPrefix(path, "/") {
+		path = g.Path + path[1:]
+	} else {
+		path = g.Path + path
+	}
+
+	g.drive.MATCH(path, methods, append(g.actions, handlers...)...)
 }
 
 func (g *group) ANY(path string, handlers ...interface{}) {
@@ -183,7 +205,7 @@ func (g *group) DELETE(path string, handlers ...interface{}) {
 	g.drive.DELETE(path, append(g.actions, handlers...)...)
 }
 
-func parseFunc(path, method string, handlers ...interface{}) *router {
+func parseFunc(path string, methods []string, handlers ...interface{}) *router {
 	_actions := actions{}
 
 	for index, handler := range handlers {
@@ -221,12 +243,16 @@ func parseFunc(path, method string, handlers ...interface{}) *router {
 
 	uri, params := parseUrl(path)
 
-	log.Println(uri)
+	_map := map[string]bool{}
+
+	for _, method := range methods {
+		_map[method] = true
+	}
 
 	return &router{
 		path:    path,
 		params:  params,
-		method:  method,
+		method:  _map,
 		uri:     uri,
 		actions: _actions,
 	}
@@ -246,15 +272,6 @@ func parseUrl(path string) (*regexp.Regexp, []string) {
 	if strings.HasSuffix(path, "/") {
 		path = strings.TrimSuffix(path, "/")
 	}
-
-	//if strings.Index(path, "*") != -1 {
-	//	//var rexp = regexp.MustCompile(`(.*)((\w+)(\.html|doc\.json|favicon-16x16\.png|favicon-32x32\.png|\.css|\.js|\.js\.map))[\?|.]*`)
-	//	index := strings.Index(path, "*")
-	//	one := path[:index]
-	//	one = strings.TrimSuffix(one, "/")
-	//	path = fmt.Sprintf(`^(/?(%s)/(\S+)?/?)$`, one)
-	//	return regexp.MustCompile(path), []string{}
-	//}
 
 	if strings.Index(path, ":") != -1 {
 
