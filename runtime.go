@@ -23,8 +23,8 @@ func (d *Drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 	var isNotFound = true
 
 	for _, r := range d.routers {
-
-		matches := r.uri.FindStringSubmatch(request.URL.Path)
+		route := r
+		matches := route.uri.FindStringSubmatch(request.URL.Path)
 
 		if len(matches) < 1 {
 			continue
@@ -33,14 +33,27 @@ func (d *Drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 		isNotFound = false
 
 		if request.Method == http.MethodOptions {
-
 			return
 		}
 
-		if r.method["ANY"] && !r.method[request.Method] {
-			responseWriter.WriteHeader(405)
-			_, _ = responseWriter.Write(methodNotAllowed)
-			return
+		if !route.method["ANY"] && !route.method[request.Method] {
+			var hasRoute bool
+
+			for _, r2 := range d.routers {
+				_matches := r2.uri.FindStringSubmatch(request.URL.Path)
+				if len(_matches) > 0 && r2.method[request.Method] {
+					route = r2
+					matches = _matches
+					hasRoute = true
+				}
+			}
+
+			if !hasRoute {
+				responseWriter.WriteHeader(405)
+				_, _ = responseWriter.Write(methodNotAllowed)
+				return
+			}
+
 		}
 
 		responseWriter.Header().Set("Cache-Control", "no-cache")
@@ -49,7 +62,7 @@ func (d *Drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 
 		var params = map[reflect.Type]reflect.Value{}
 
-		for i, a := range r.actions {
+		for i, a := range route.actions {
 
 			var values []reflect.Value
 
