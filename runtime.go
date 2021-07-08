@@ -16,6 +16,7 @@ var (
 	_response        = reflect.TypeOf(&response{})
 	_request         = reflect.TypeOf(&Request{})
 	methodNotAllowed = []byte("method not allowed")
+	expectsJSON      = []byte("expects to receive a JSON object")
 )
 
 func (d *Drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
@@ -118,9 +119,12 @@ func (d *Drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 				}
 
 				if !isPrimitive(param.Kind()) && d.services[param].Kind() == reflect.Invalid {
-					value := *setOther(param, request)
-					params[param] = value
-					values = append(values, value)
+					value := setOther(param, request, responseWriter)
+					if value == nil {
+						return
+					}
+					params[param] = *value
+					values = append(values, *value)
 					continue
 				}
 
@@ -176,14 +180,17 @@ func (d *Drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 
 }
 
-func setOther(param reflect.Type, request *http.Request) *reflect.Value {
+func setOther(param reflect.Type, request *http.Request, w http.ResponseWriter) *reflect.Value {
 
 	_value := reflect.New(param)
 
 	err := json.NewDecoder(request.Body).Decode(_value.Interface())
 
 	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(expectsJSON)
 		log.Println(err)
+		return nil
 	}
 
 	val := _value.Elem()
