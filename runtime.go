@@ -118,6 +118,19 @@ func (d *Drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 					continue
 				}
 
+				for key, value := range d.services {
+					if reflect.DeepEqual(param, key) {
+						if param.Kind() == reflect.Ptr {
+							values = append(values, value)
+							params[key] = value
+						} else {
+							values = append(values, value)
+							params[key] = value
+						}
+						break
+					}
+				}
+
 				if !isPrimitive(param.Kind()) && d.services[param].Kind() == reflect.Invalid {
 					value := setOther(param, request, responseWriter)
 					if value == nil {
@@ -126,14 +139,6 @@ func (d *Drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 					params[param] = *value
 					values = append(values, *value)
 					continue
-				}
-
-				for key, value := range d.services {
-					if reflect.DeepEqual(param, key) {
-						values = append(values, value)
-						params[key] = value
-						break
-					}
 				}
 
 			}
@@ -262,4 +267,17 @@ func getPrimitiveResult(value reflect.Value) []byte {
 		return toByte
 	}
 	return nil
+}
+
+func Equals(a, b reflect.Type) bool {
+
+	if a.Kind() == reflect.Ptr {
+		a = a.Elem()
+	}
+
+	if b.Kind() == reflect.Ptr {
+		b = b.Elem()
+	}
+
+	return reflect.DeepEqual(a, b)
 }

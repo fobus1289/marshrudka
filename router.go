@@ -25,3 +25,7 @@ type group struct {
 	actions []interface{}
 	*Drive
 }
+
+func (r *router) Controller() {
+
+}

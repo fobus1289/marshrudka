@@ -13,7 +13,9 @@ func (d *Drive) Register(_interface interface{}, _struct ...interface{}) *Drive 
 
 	if _struct == nil {
 		_structValue := reflect.ValueOf(_interface)
+		_structElemet := _structValue.Elem()
 		d.services[_structValue.Type()] = _structValue
+		d.services[_structElemet.Type()] = _structElemet
 		return d
 	}
 
@@ -139,7 +141,7 @@ func (g *group) MATCH(path string, methods []string, handlers ...interface{}) {
 	g.Drive.MATCH(path, methods, append(g.actions, handlers...)...)
 }
 
-func (g *group) ANY(path string, handlers ...interface{}) {
+func (g *group) ANY(path string, handlers ...interface{}) *router {
 
 	if strings.HasPrefix(path, "/") {
 		path = g.Path + path[1:]
@@ -147,10 +149,10 @@ func (g *group) ANY(path string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	g.Drive.ANY(path, append(g.actions, handlers...)...)
+	return g.Drive.ANY(path, append(g.actions, handlers...)...)
 }
 
-func (g *group) GET(path string, handlers ...interface{}) {
+func (g *group) GET(path string, handlers ...interface{}) *router {
 
 	if strings.HasPrefix(path, "/") {
 		path = g.Path + path[1:]
@@ -158,10 +160,10 @@ func (g *group) GET(path string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	g.Drive.GET(path, append(g.actions, handlers...)...)
+	return g.Drive.GET(path, append(g.actions, handlers...)...)
 }
 
-func (g *group) POST(path string, handlers ...interface{}) {
+func (g *group) POST(path string, handlers ...interface{}) *router {
 
 	if strings.HasPrefix(path, "/") {
 		path = g.Path + path[1:]
@@ -169,10 +171,10 @@ func (g *group) POST(path string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	g.Drive.POST(path, append(g.actions, handlers...)...)
+	return g.Drive.POST(path, append(g.actions, handlers...)...)
 }
 
-func (g *group) PUT(path string, handlers ...interface{}) {
+func (g *group) PUT(path string, handlers ...interface{}) *router {
 
 	if strings.HasPrefix(path, "/") {
 		path = g.Path + path[1:]
@@ -180,10 +182,10 @@ func (g *group) PUT(path string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	g.Drive.PUT(path, append(g.actions, handlers...)...)
+	return g.Drive.PUT(path, append(g.actions, handlers...)...)
 }
 
-func (g *group) PATCH(path string, handlers ...interface{}) {
+func (g *group) PATCH(path string, handlers ...interface{}) *router {
 
 	if strings.HasPrefix(path, "/") {
 		path = g.Path + path[1:]
@@ -191,10 +193,10 @@ func (g *group) PATCH(path string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	g.Drive.PATCH(path, append(g.actions, handlers...)...)
+	return g.Drive.PATCH(path, append(g.actions, handlers...)...)
 }
 
-func (g *group) DELETE(path string, handlers ...interface{}) {
+func (g *group) DELETE(path string, handlers ...interface{}) *router {
 
 	if strings.HasPrefix(path, "/") {
 		path = g.Path + path[1:]
@@ -202,7 +204,7 @@ func (g *group) DELETE(path string, handlers ...interface{}) {
 		path = g.Path + path
 	}
 
-	g.Drive.DELETE(path, append(g.actions, handlers...)...)
+	return g.Drive.DELETE(path, append(g.actions, handlers...)...)
 }
 
 func parseFunc(path string, methods []string, handlers ...interface{}) *router {
@@ -283,7 +285,7 @@ func parseUrl(path string) (*regexp.Regexp, []string) {
 		rep = strings.Replace(rep, `//`, "/", -1)
 
 		path = fmt.Sprintf("^((/?%s/?)|(/?%s?))$", path, rep)
-		log.Println(path)
+
 		return regexp.MustCompile(path), names
 	}
 
