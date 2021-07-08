@@ -89,7 +89,7 @@ func (d *Drive) GET(path string, handlers ...interface{}) *router {
 }
 
 func (d *Drive) POST(path string, handlers ...interface{}) *router {
-	_router := parseFunc(path, []string{http.MethodPost}, handlers)
+	_router := parseFunc(path, []string{http.MethodPost}, handlers...)
 	_router.actions = append(d.checkHas(), _router.actions...)
 	d.routers.Add(_router)
 	return _router
