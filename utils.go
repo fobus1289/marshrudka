@@ -12,7 +12,7 @@ const (
 
 type Stop bool
 
-type throw struct {
+type Throw struct {
 	StatusCode  int
 	Data        interface{}
 	ContentType string
@@ -42,8 +42,8 @@ func (h *_http) Json(data interface{}) *response {
 	}
 }
 
-func (h *_http) Throw(content string, data interface{}) *throw {
-	return &throw{
+func (h *_http) Throw(content string, data interface{}) *Throw {
+	return &Throw{
 		StatusCode:  h.code,
 		Data:        data,
 		ContentType: content,

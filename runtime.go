@@ -12,7 +12,7 @@ import (
 var (
 	httpResponse     = reflect.TypeOf((*http.ResponseWriter)(nil)).Elem()
 	httpRequest      = reflect.TypeOf(&http.Request{})
-	_throw           = reflect.TypeOf(&throw{})
+	_throw           = reflect.TypeOf(&Throw{})
 	_response        = reflect.TypeOf(&response{})
 	_request         = reflect.TypeOf(&Request{})
 	methodNotAllowed = []byte("method not allowed")
@@ -150,7 +150,7 @@ func (d *Drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 				valueOf := reflect.ValueOf(value.Interface())
 
 				if reflect.DeepEqual(valueOf.Type(), _throw) {
-					var throw = valueOf.Interface().(*throw)
+					var throw = valueOf.Interface().(*Throw)
 					responseWriter.Header().Set("Content-Type", throw.ContentType)
 					responseWriter.WriteHeader(throw.StatusCode)
 
