@@ -24,13 +24,15 @@ type _map map[string]interface{}
 type Channels map[string]Clients
 
 type WebSocket struct {
-	mux      *sync.RWMutex
-	upgrader *websocket.Upgrader
-	services map[reflect.Type]reflect.Value
-	clients  Clients
-	channels Channels
-	_default func(client *Client, data interface{})
-	mapper   _map
+	mux            *sync.RWMutex
+	upgrader       *websocket.Upgrader
+	services       map[reflect.Type]reflect.Value
+	clients        Clients
+	channels       Channels
+	_default       func(client *Client, data interface{})
+	_connection    func(client *Client, r *http.Request)
+	_disconnection func(client *Client)
+	mapper         _map
 }
 
 func (w *WebSocket) Default(event func(client *Client, data interface{})) {
@@ -39,6 +41,14 @@ func (w *WebSocket) Default(event func(client *Client, data interface{})) {
 
 func (w *WebSocket) Event(name string, event interface{}) {
 	w.mapper[name] = event
+}
+
+func (w *WebSocket) Connection(fn func(client *Client, r *http.Request)) {
+	w._connection = fn
+}
+
+func (w *WebSocket) Disconnection(fn func(client *Client)) {
+	w._disconnection = fn
 }
 
 func (w *WebSocket) Register(_interface interface{}, _struct ...interface{}) *WebSocket {
@@ -110,11 +120,13 @@ func NewWebSocket(config *Config) *WebSocket {
 	}
 
 	return &WebSocket{
-		mux:      &sync.RWMutex{},
-		upgrader: upgrader,
-		services: map[reflect.Type]reflect.Value{},
-		channels: Channels{},
-		_default: func(client *Client, data interface{}) {},
-		mapper:   _map{},
+		mux:            &sync.RWMutex{},
+		upgrader:       upgrader,
+		_connection:    func(client *Client, r *http.Request) {},
+		_disconnection: func(client *Client) {},
+		services:       map[reflect.Type]reflect.Value{},
+		channels:       Channels{},
+		_default:       func(client *Client, data interface{}) {},
+		mapper:         _map{},
 	}
 }
