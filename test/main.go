@@ -70,6 +70,7 @@ func main() {
 			return
 		}
 
+
 		client.SetOwner(&SocketUser{
 			Id:   id,
 			Name: "asdsadsads" + strconv.Itoa(int(id)),
