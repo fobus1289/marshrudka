@@ -27,6 +27,21 @@ type Qa struct {
 	Id int
 }
 
+type Ba struct {
+	Id int
+}
+
+type Da struct {
+	Id int
+}
+type AAA interface {
+	Name()
+}
+
+func (d *Da) Name() {
+	println("name da")
+}
+
 func main() {
 
 	sokHttp := socket.NewWebSocket(&socket.Config{
@@ -38,8 +53,26 @@ func main() {
 		EnableCompression: true,
 	})
 
-	sokHttp.Register(&Qa{Id: 111})
+	type Use struct {
+		*Qa
+		*Ba
+		AAA
+	}
 
+	sokHttp.Register(&Qa{Id: 1})
+	//sokHttp.Register((*AAA)(nil), &Da{Id: 1})
+	sokHttp.Register(&Ba{Id: 2})
+	sokHttp.Register(&Da{Id: 3})
+
+	use := &Use{}
+
+	sokHttp.Dep(use)
+
+	log.Println(use.Qa.Id)
+	log.Println(use.Ba.Id)
+	log.Println(use.AAA)
+
+	return
 	sokHttp.Default(func(client *socket.Client, data interface{}) {
 		log.Println("default ", data)
 	})

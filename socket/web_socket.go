@@ -62,7 +62,7 @@ func (w *WebSocket) Register(_interface interface{}, _struct ...interface{}) *We
 	}
 
 	if len(_struct) != 1 {
-		log.Fatalln("something went wrong")
+		log.Fatalln("something went wrong 1")
 	}
 
 	if implement(_interface, _struct[0]) {
@@ -71,10 +71,30 @@ func (w *WebSocket) Register(_interface interface{}, _struct ...interface{}) *We
 		w.services[_interfaceType.Elem()] = _structValue
 		w.services[_structValue.Type()] = _structValue
 	} else {
-		log.Fatalln("something went wrong")
+		log.Fatalln("something went wrong 2")
 	}
 
 	return w
+}
+
+func (w *WebSocket) Dep(owner interface{}) {
+
+	ownerType := reflect.ValueOf(owner)
+
+	if ownerType.Kind() == reflect.Ptr {
+		ownerType = ownerType.Elem()
+	}
+
+	for i := 0; i < ownerType.NumField(); i++ {
+		fieldType := ownerType.Field(i)
+
+		service := w.services[fieldType.Type()]
+
+		if service.Kind() != reflect.Invalid {
+			fieldType.Set(service)
+		}
+	}
+
 }
 
 func implement(_interface, _struct interface{}) bool {
