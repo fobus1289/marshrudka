@@ -13,7 +13,7 @@ type Drive struct {
 	routers
 	services
 	Logger   *log.Logger
-	handlers []interface{}
+	actions  actions
 }
 
 func NewDrive(logger *log.Logger) *Drive {

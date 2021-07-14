@@ -59,25 +59,23 @@ func implement(_interface, _struct interface{}) bool {
 }
 
 func (d *Drive) Use(handlers ...interface{}) *Drive {
-	d.handlers = handlers
+	d.actions = parseFunc("", []string{}, handlers...).actions
 	return d
 }
 
-func (d *Drive) checkHas() actions {
-	var driverActions actions
-
-	if len(d.handlers) > 0 {
-		driverActions = parseFunc("", []string{}, d.handlers...).actions
-	}
-
-	return driverActions
-}
+//func (d *Drive) checkHas() actions {
+//	var driverActions actions
+//
+//	if len(d.handlers) > 0 {
+//		driverActions = parseFunc("", []string{}, d.handlers...).actions
+//	}
+//
+//	return driverActions
+//}
 
 func (d *Drive) ANY(path string, handlers ...interface{}) *router {
 
 	_router := parseFunc(path, []string{"ANY"}, handlers...)
-
-	_router.actions = append(d.checkHas(), _router.actions...)
 
 	d.routers.Add(_router)
 	return _router
@@ -85,35 +83,35 @@ func (d *Drive) ANY(path string, handlers ...interface{}) *router {
 
 func (d *Drive) GET(path string, handlers ...interface{}) *router {
 	_router := parseFunc(path, []string{http.MethodGet}, handlers...)
-	_router.actions = append(d.checkHas(), _router.actions...)
+
 	d.routers.Add(_router)
 	return _router
 }
 
 func (d *Drive) POST(path string, handlers ...interface{}) *router {
 	_router := parseFunc(path, []string{http.MethodPost}, handlers...)
-	_router.actions = append(d.checkHas(), _router.actions...)
+
 	d.routers.Add(_router)
 	return _router
 }
 
 func (d *Drive) PUT(path string, handlers ...interface{}) *router {
 	_router := parseFunc(path, []string{http.MethodPut}, handlers...)
-	_router.actions = append(d.checkHas(), _router.actions...)
+
 	d.routers.Add(_router)
 	return _router
 }
 
 func (d *Drive) PATCH(path string, handlers ...interface{}) *router {
 	_router := parseFunc(path, []string{http.MethodPatch}, handlers...)
-	_router.actions = append(d.checkHas(), _router.actions...)
+
 	d.routers.Add(_router)
 	return _router
 }
 
 func (d *Drive) DELETE(path string, handlers ...interface{}) *router {
 	_router := parseFunc(path, []string{http.MethodDelete}, handlers...)
-	_router.actions = append(d.checkHas(), _router.actions...)
+
 	d.routers.Add(_router)
 	return _router
 }
@@ -125,7 +123,7 @@ func (d *Drive) MATCH(path string, methods []string, handlers ...interface{}) *r
 	}
 
 	_router := parseFunc(path, methods, handlers...)
-	_router.actions = append(d.checkHas(), _router.actions...)
+
 	d.routers.Add(_router)
 	return _router
 }

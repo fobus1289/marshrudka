@@ -33,8 +33,57 @@ func (d *Drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 
 		isNotFound = false
 
-		if request.Method == http.MethodOptions {
-			return
+		for _, a := range d.actions {
+			var values []reflect.Value
+			for _, param := range a.Params {
+
+				if reflect.DeepEqual(param, httpRequest) {
+					value := reflect.ValueOf(request)
+					values = append(values, value)
+					continue
+				}
+
+				if reflect.DeepEqual(param, httpResponse) {
+					value := reflect.ValueOf(responseWriter)
+					values = append(values, value)
+					continue
+				}
+
+				for key, value := range d.services {
+					if reflect.DeepEqual(param, key) {
+						if param.Kind() == reflect.Ptr {
+							values = append(values, value)
+						} else {
+							values = append(values, value)
+						}
+						break
+					}
+				}
+
+				if !isPrimitive(param.Kind()) && d.services[param].Kind() == reflect.Invalid {
+					value := setOther(param, request, responseWriter)
+					if value == nil {
+						return
+					}
+					values = append(values, *value)
+					continue
+				}
+			}
+
+			ret := a.Call(values)
+
+			for _, value := range ret {
+				valueOf := reflect.ValueOf(value.Interface())
+				if reflect.DeepEqual(valueOf.Type(), _throw) {
+					var throw = valueOf.Interface().(*Throw)
+					responseWriter.Header().Set("Content-Type", throw.ContentType)
+					responseWriter.WriteHeader(throw.StatusCode)
+
+					_, _ = responseWriter.Write(getPrimitiveResult(reflect.ValueOf(throw.Data)))
+					return
+				}
+			}
+
 		}
 
 		if !route.method["ANY"] && !route.method[request.Method] {
@@ -61,120 +110,120 @@ func (d *Drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 		responseWriter.Header().Set("Accept-Encoding", "gzip, deflate, br")
 		responseWriter.Header().Set("Content-Type", TEXT_HTML)
 
-		var params = map[reflect.Type]reflect.Value{}
-
-		for i, a := range route.actions {
-
-			var values []reflect.Value
-
-			for _, param := range a.Params {
-
-				mapParam := params[param]
-
-				if mapParam.Kind() != reflect.Invalid {
-					values = append(values, mapParam)
-					continue
-				}
-
-				if reflect.DeepEqual(param, httpRequest) {
-					value := reflect.ValueOf(request)
-					params[param] = value
-					values = append(values, value)
-					continue
-				}
-
-				if reflect.DeepEqual(param, httpResponse) {
-					value := reflect.ValueOf(responseWriter)
-					params[param] = value
-					values = append(values, value)
-					continue
-				}
-
-				if reflect.DeepEqual(param, _request) {
-
-					req := &Request{
-						HttpResponseWriter: responseWriter,
-						HttpRequest:        request,
-						Params:             map[string]string{},
-					}
-
-					if len(r.params) > 0 {
-						var paramIndex int
-
-						for _, match := range matches {
-							if strings.HasPrefix(match, "/") || strings.TrimSpace(match) == "" {
-								continue
-							}
-							req.Params[r.params[paramIndex]] = match
-							paramIndex++
-						}
-					}
-
-					value := reflect.ValueOf(req)
-					params[param] = value
-
-					values = append(values, value)
-
-					continue
-				}
-
-				for key, value := range d.services {
-					if reflect.DeepEqual(param, key) {
-						if param.Kind() == reflect.Ptr {
-							values = append(values, value)
-							params[key] = value
-						} else {
-							values = append(values, value)
-							params[key] = value
-						}
-						break
-					}
-				}
-
-				if !isPrimitive(param.Kind()) && d.services[param].Kind() == reflect.Invalid {
-					value := setOther(param, request, responseWriter)
-					if value == nil {
-						return
-					}
-					params[param] = *value
-					values = append(values, *value)
-					continue
-				}
-
-			}
-
-			ret := a.Call(values)
-
-			for _, value := range ret {
-
-				valueOf := reflect.ValueOf(value.Interface())
-
-				if reflect.DeepEqual(valueOf.Type(), _throw) {
-					var throw = valueOf.Interface().(*Throw)
-					responseWriter.Header().Set("Content-Type", throw.ContentType)
-					responseWriter.WriteHeader(throw.StatusCode)
-
-					_, _ = responseWriter.Write(getPrimitiveResult(reflect.ValueOf(throw.Data)))
-					return
-				}
-
-				if len(r.actions)-1 == i {
-
-					if reflect.DeepEqual(valueOf.Type(), _response) {
-						var response = valueOf.Interface().(*response)
-						responseWriter.Header().Set("Content-Type", response.ContentType)
-						responseWriter.WriteHeader(response.StatusCode)
-						_, _ = responseWriter.Write(getPrimitiveResult(reflect.ValueOf(response.Data)))
-						return
-					}
-
-					_, _ = responseWriter.Write(getPrimitiveResult(valueOf))
-				}
-
-				params[valueOf.Type()] = valueOf
-			}
-
-		}
+		callAction(d, route, matches, responseWriter, request)
+		//var params = map[reflect.Type]reflect.Value{}
+		//for i, a := range route.actions {
+		//
+		//	var values []reflect.Value
+		//
+		//	for _, param := range a.Params {
+		//
+		//		mapParam := params[param]
+		//
+		//		if mapParam.Kind() != reflect.Invalid {
+		//			values = append(values, mapParam)
+		//			continue
+		//		}
+		//
+		//		if reflect.DeepEqual(param, httpRequest) {
+		//			value := reflect.ValueOf(request)
+		//			params[param] = value
+		//			values = append(values, value)
+		//			continue
+		//		}
+		//
+		//		if reflect.DeepEqual(param, httpResponse) {
+		//			value := reflect.ValueOf(responseWriter)
+		//			params[param] = value
+		//			values = append(values, value)
+		//			continue
+		//		}
+		//
+		//		if reflect.DeepEqual(param, _request) {
+		//
+		//			req := &Request{
+		//				HttpResponseWriter: responseWriter,
+		//				HttpRequest:        request,
+		//				Params:             map[string]string{},
+		//			}
+		//
+		//			if len(r.params) > 0 {
+		//				var paramIndex int
+		//
+		//				for _, match := range matches {
+		//					if strings.HasPrefix(match, "/") || strings.TrimSpace(match) == "" {
+		//						continue
+		//					}
+		//					req.Params[r.params[paramIndex]] = match
+		//					paramIndex++
+		//				}
+		//			}
+		//
+		//			value := reflect.ValueOf(req)
+		//			params[param] = value
+		//
+		//			values = append(values, value)
+		//
+		//			continue
+		//		}
+		//
+		//		for key, value := range d.services {
+		//			if reflect.DeepEqual(param, key) {
+		//				if param.Kind() == reflect.Ptr {
+		//					values = append(values, value)
+		//					params[key] = value
+		//				} else {
+		//					values = append(values, value)
+		//					params[key] = value
+		//				}
+		//				break
+		//			}
+		//		}
+		//
+		//		if !isPrimitive(param.Kind()) && d.services[param].Kind() == reflect.Invalid {
+		//			value := setOther(param, request, responseWriter)
+		//			if value == nil {
+		//				return
+		//			}
+		//			params[param] = *value
+		//			values = append(values, *value)
+		//			continue
+		//		}
+		//
+		//	}
+		//
+		//	ret := a.Call(values)
+		//
+		//	for _, value := range ret {
+		//
+		//		valueOf := reflect.ValueOf(value.Interface())
+		//
+		//		if reflect.DeepEqual(valueOf.Type(), _throw) {
+		//			var throw = valueOf.Interface().(*Throw)
+		//			responseWriter.Header().Set("Content-Type", throw.ContentType)
+		//			responseWriter.WriteHeader(throw.StatusCode)
+		//
+		//			_, _ = responseWriter.Write(getPrimitiveResult(reflect.ValueOf(throw.Data)))
+		//			return
+		//		}
+		//
+		//		if len(r.actions)-1 == i {
+		//
+		//			if reflect.DeepEqual(valueOf.Type(), _response) {
+		//				var response = valueOf.Interface().(*response)
+		//				responseWriter.Header().Set("Content-Type", response.ContentType)
+		//				responseWriter.WriteHeader(response.StatusCode)
+		//				_, _ = responseWriter.Write(getPrimitiveResult(reflect.ValueOf(response.Data)))
+		//				return
+		//			}
+		//
+		//			_, _ = responseWriter.Write(getPrimitiveResult(valueOf))
+		//		}
+		//
+		//		params[valueOf.Type()] = valueOf
+		//	}
+		//
+		//}
 
 		break
 	}
@@ -183,6 +232,125 @@ func (d *Drive) ServeHTTP(responseWriter http.ResponseWriter, request *http.Requ
 		http.NotFound(responseWriter, request)
 	}
 
+}
+
+func callAction(d *Drive, route *router, matches []string,
+	responseWriter http.ResponseWriter, request *http.Request,
+) {
+	var params = map[reflect.Type]reflect.Value{}
+
+	for i, a := range route.actions {
+
+		var values []reflect.Value
+
+		for _, param := range a.Params {
+
+			mapParam := params[param]
+
+			if mapParam.Kind() != reflect.Invalid {
+				values = append(values, mapParam)
+				continue
+			}
+
+			if reflect.DeepEqual(param, httpRequest) {
+				value := reflect.ValueOf(request)
+				params[param] = value
+				values = append(values, value)
+				continue
+			}
+
+			if reflect.DeepEqual(param, httpResponse) {
+				value := reflect.ValueOf(responseWriter)
+				params[param] = value
+				values = append(values, value)
+				continue
+			}
+
+			if reflect.DeepEqual(param, _request) {
+
+				req := &Request{
+					HttpResponseWriter: responseWriter,
+					HttpRequest:        request,
+					Params:             map[string]string{},
+				}
+
+				if len(route.params) > 0 {
+					var paramIndex int
+
+					for _, match := range matches {
+						if strings.HasPrefix(match, "/") || strings.TrimSpace(match) == "" {
+							continue
+						}
+						req.Params[route.params[paramIndex]] = match
+						paramIndex++
+					}
+				}
+
+				value := reflect.ValueOf(req)
+				params[param] = value
+
+				values = append(values, value)
+
+				continue
+			}
+
+			for key, value := range d.services {
+				if reflect.DeepEqual(param, key) {
+					if param.Kind() == reflect.Ptr {
+						values = append(values, value)
+						params[key] = value
+					} else {
+						values = append(values, value)
+						params[key] = value
+					}
+					break
+				}
+			}
+
+			if !isPrimitive(param.Kind()) && d.services[param].Kind() == reflect.Invalid {
+				value := setOther(param, request, responseWriter)
+				if value == nil {
+					return
+				}
+				params[param] = *value
+				values = append(values, *value)
+				continue
+			}
+
+		}
+
+		ret := a.Call(values)
+
+		for _, value := range ret {
+
+			valueOf := reflect.ValueOf(value.Interface())
+
+			if reflect.DeepEqual(valueOf.Type(), _throw) {
+				var throw = valueOf.Interface().(*Throw)
+				responseWriter.Header().Set("Content-Type", throw.ContentType)
+				responseWriter.WriteHeader(throw.StatusCode)
+
+				_, _ = responseWriter.Write(getPrimitiveResult(reflect.ValueOf(throw.Data)))
+				return
+			}
+
+			if len(route.actions)-1 == i {
+
+				if reflect.DeepEqual(valueOf.Type(), _response) {
+					var response = valueOf.Interface().(*response)
+					responseWriter.Header().Set("Content-Type", response.ContentType)
+					responseWriter.WriteHeader(response.StatusCode)
+					_, _ = responseWriter.Write(getPrimitiveResult(reflect.ValueOf(response.Data)))
+					return
+				}
+
+				_, _ = responseWriter.Write(getPrimitiveResult(valueOf))
+			}
+
+			params[valueOf.Type()] = valueOf
+		}
+
+	}
 }
 
 func setOther(param reflect.Type, request *http.Request, w http.ResponseWriter) *reflect.Value {
