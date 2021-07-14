@@ -132,6 +132,7 @@ func (w *WebSocket) hasEvent(c *Client, msg []byte) (string, bool) {
 	data := str[index+1:]
 
 	w.parseFunc(fu, c, data)
+
 	return data, true
 }
 
@@ -182,7 +183,52 @@ func (w *WebSocket) parseFunc(fu interface{}, c *Client, msg string) {
 		params = append(params, value)
 	}
 
-	fuValue.Call(params)
+	ret := fuValue.Call(params)
+
+	if len(ret) < 1 {
+		return
+	}
+
+	retData := getPrimitiveResult(ret[0])
+	c.WriteBytes(retData)
+}
+
+func getPrimitiveResult(value reflect.Value) []byte {
+
+	if value.Kind() == reflect.Ptr {
+		value = value.Elem()
+	}
+
+	switch value.Kind() {
+
+	case reflect.Bool:
+		var boolBit = "false"
+		if value.Bool() {
+			boolBit = "true"
+		}
+		return []byte(boolBit)
+	case reflect.Int,
+		reflect.Int8,
+		reflect.Int16,
+		reflect.Int32,
+		reflect.Int64:
+		return []byte(strconv.FormatInt(value.Int(), 10))
+	case reflect.Uint,
+		reflect.Uint8,
+		reflect.Uint16,
+		reflect.Uint32,
+		reflect.Uint64:
+		return []byte(strconv.FormatUint(value.Uint(), 10))
+	case reflect.Float32,
+		reflect.Float64:
+		return []byte(strconv.FormatFloat(value.Float(), 'f', -1, 64))
+	case reflect.String:
+		return []byte(value.String())
+	case reflect.Struct, reflect.Slice, reflect.Interface, reflect.Map:
+		toByte, _ := json.Marshal(value.Interface())
+		return toByte
+	}
+	return nil
 }
 
 func getParamValue(value reflect.Type, data string) reflect.Value {

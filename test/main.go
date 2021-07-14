@@ -49,16 +49,18 @@ func main() {
 		Name string `json:"name,omitempty"`
 	}
 
-	sokHttp.Event("b", func(conn *socket.Client, q *Qa, sok *SocketUser, clients socket.Clients, data []string) {
-		log.Println(data)
-		log.Println(conn.GetId())
-		log.Println(q)
-		log.Println(sok)
-		log.Println(clients.Size())
+	sokHttp.Event("b", func(conn *socket.Client, q *Qa, sok *SocketUser, clients socket.Clients, data []string) interface{} {
+		return map[string]int{
+			"a": 111,
+			"b": 222,
+			"c": 333,
+		}
 	})
 
-	sokHttp.Event("c", func(conn *socket.Client, data *qqq) {
+	sokHttp.Event("c", func(conn *socket.Client, data *qqq) interface{} {
 		log.Println(data, "c")
+
+		return data
 	})
 
 	var id int64
@@ -69,7 +71,6 @@ func main() {
 		if err != nil {
 			return
 		}
-
 
 		client.SetOwner(&SocketUser{
 			Id:   id,
