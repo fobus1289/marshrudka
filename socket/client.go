@@ -55,6 +55,10 @@ func (c *Client) SetOwner(owner interface{}) {
 	c.owner = owner
 }
 
+func (c *Client) Delete() {
+	c.socket.clients.Delete(c)
+}
+
 func (c *Client) GetOwner() interface{} {
 	return c.owner
 }
