@@ -82,7 +82,7 @@ func (w *WebSocket) NewClient(res http.ResponseWriter, req *http.Request, header
 	}
 
 	w.clients = append(w.clients, client)
-
+	w._connection(client, req)
 	go client.read()
 
 	return client, nil
@@ -127,6 +127,7 @@ func (c *Client) BroadcastChannel(name string, data interface{}) {
 
 func (c *Client) Write(data interface{}) {
 	if err := c.Conn.WriteMessage(websocket.TextMessage, getPrimitiveResult(reflect.ValueOf(data))); err != nil {
+		c.socket._disconnection(c)
 		c.socket.clients.Delete(c)
 		c.socket.channels.Delete(c)
 	}
@@ -134,6 +135,7 @@ func (c *Client) Write(data interface{}) {
 
 func (c *Client) WriteBytes(data []byte) {
 	if err := c.Conn.WriteMessage(websocket.TextMessage, data); err != nil {
+		c.socket._disconnection(c)
 		c.socket.clients.Delete(c)
 		c.socket.channels.Delete(c)
 	}
@@ -141,6 +143,7 @@ func (c *Client) WriteBytes(data []byte) {
 
 func (c *Client) WriteString(data string) {
 	if err := c.Conn.WriteMessage(websocket.TextMessage, []byte(data)); err != nil {
+		c.socket._disconnection(c)
 		c.socket.clients.Delete(c)
 		c.socket.channels.Delete(c)
 	}
@@ -151,6 +154,7 @@ func (c *Client) read() {
 	defer func() {
 		c.socket.clients.Delete(c)
 		c.socket.channels.Delete(c)
+		c.socket._disconnection(c)
 		_ = c.Conn.Close()
 	}()
 
