@@ -83,9 +83,46 @@ func (w *WebSocket) NewClient(res http.ResponseWriter, req *http.Request, header
 
 	w.clients = append(w.clients, client)
 
-	go client.Read()
+	go client.read()
 
 	return client, nil
+}
+
+func (c *Client) Clients() Clients {
+	return c.socket.clients
+}
+
+func (c *Client) JoinChannel(name string) {
+	c.socket.channels[name] = append(c.socket.channels[name], c)
+}
+
+func (c *Client) ChannelClients(name string) Clients {
+	return c.socket.channels[name]
+}
+
+func (c *Client) BroadcastMeToo(data interface{}) {
+	ret := getPrimitiveResult(reflect.ValueOf(data))
+	c.Clients().ForEach(func(client *Client) {
+		client.WriteBytes(ret)
+	})
+}
+
+func (c *Client) BroadcastClients(data interface{}) {
+	ret := getPrimitiveResult(reflect.ValueOf(data))
+	c.Clients().Filter(func(client *Client) bool {
+		return c != client
+	}).ForEach(func(client *Client) {
+		client.WriteBytes(ret)
+	})
+}
+
+func (c *Client) BroadcastChannel(name string, data interface{}) {
+	ret := getPrimitiveResult(reflect.ValueOf(data))
+	c.ChannelClients(name).Filter(func(client *Client) bool {
+		return c != client
+	}).ForEach(func(client *Client) {
+		client.WriteBytes(ret)
+	})
 }
 
 func (c *Client) Write(data interface{}) {
@@ -109,7 +146,7 @@ func (c *Client) WriteString(data string) {
 	}
 }
 
-func (c *Client) Read() {
+func (c *Client) read() {
 
 	defer func() {
 		c.socket.clients.Delete(c)
