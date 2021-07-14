@@ -21,8 +21,9 @@ type Client struct {
 type Clients []*Client
 
 var (
-	typeClients = reflect.TypeOf(Clients{})
-	typeClient  = reflect.TypeOf(&Client{})
+	typeClients  = reflect.TypeOf(Clients{})
+	typeClient   = reflect.TypeOf(&Client{})
+	typeChannels = reflect.TypeOf(Channels{})
 )
 
 func (c *Clients) Delete(client *Client) bool {
@@ -37,6 +38,17 @@ func (c *Clients) Delete(client *Client) bool {
 	}
 
 	return false
+}
+
+func (c Channels) Delete(client *Client) {
+	for key, value := range c {
+		for i, c2 := range value {
+			if c2 == client {
+				c[key] = append(value[:i], value[i+1:]...)
+				break
+			}
+		}
+	}
 }
 
 func (c *Client) SetOwner(owner interface{}) {
@@ -76,15 +88,24 @@ func (w *WebSocket) NewClient(res http.ResponseWriter, req *http.Request, header
 	return client, nil
 }
 
+func (c *Client) Write(data interface{}) {
+	if err := c.Conn.WriteMessage(websocket.TextMessage, getPrimitiveResult(reflect.ValueOf(data))); err != nil {
+		c.socket.clients.Delete(c)
+		c.socket.channels.Delete(c)
+	}
+}
+
 func (c *Client) WriteBytes(data []byte) {
 	if err := c.Conn.WriteMessage(websocket.TextMessage, data); err != nil {
 		c.socket.clients.Delete(c)
+		c.socket.channels.Delete(c)
 	}
 }
 
 func (c *Client) WriteString(data string) {
 	if err := c.Conn.WriteMessage(websocket.TextMessage, []byte(data)); err != nil {
 		c.socket.clients.Delete(c)
+		c.socket.channels.Delete(c)
 	}
 }
 
@@ -92,6 +113,7 @@ func (c *Client) Read() {
 
 	defer func() {
 		c.socket.clients.Delete(c)
+		c.socket.channels.Delete(c)
 		_ = c.Conn.Close()
 	}()
 
@@ -160,6 +182,11 @@ func (w *WebSocket) parseFunc(fu interface{}, c *Client, msg string) {
 				params = append(params, ownerValue)
 				continue
 			}
+		}
+
+		if reflect.DeepEqual(inType, typeChannels) {
+			params = append(params, reflect.ValueOf(w.channels))
+			continue
 		}
 
 		if reflect.DeepEqual(inType, typeClient) {

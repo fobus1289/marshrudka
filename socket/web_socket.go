@@ -21,12 +21,14 @@ type Config struct {
 
 //type _map map[string]func(client *Client, data interface{})
 type _map map[string]interface{}
+type Channels map[string]Clients
 
 type WebSocket struct {
 	mux      *sync.RWMutex
 	upgrader *websocket.Upgrader
 	services map[reflect.Type]reflect.Value
 	clients  Clients
+	channels Channels
 	_default func(client *Client, data interface{})
 	mapper   _map
 }
@@ -111,6 +113,7 @@ func NewWebSocket(config *Config) *WebSocket {
 		mux:      &sync.RWMutex{},
 		upgrader: upgrader,
 		services: map[reflect.Type]reflect.Value{},
+		channels: Channels{},
 		_default: func(client *Client, data interface{}) {},
 		mapper:   _map{},
 	}
