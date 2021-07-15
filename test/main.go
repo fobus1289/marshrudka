@@ -1,7 +1,9 @@
 package main
 
 import (
+	http_gin "github.com/fobus1289/marshrudka/http-gin"
 	"github.com/fobus1289/marshrudka/socket"
+	"github.com/gin-contrib/cors"
 	"log"
 	"net/http"
 	"reflect"
@@ -34,6 +36,7 @@ type Ba struct {
 type Da struct {
 	Id int
 }
+
 type AAA interface {
 	Name()
 }
@@ -43,6 +46,76 @@ func (d *Da) Name() {
 }
 
 func main() {
+
+	dr := http_gin.NewDrive()
+
+	dr.Use(cors.New(cors.Config{
+		AllowOrigins:  []string{"*"},
+		AllowMethods:  []string{"*"},
+		AllowHeaders:  []string{"*"},
+		ExposeHeaders: []string{"Content-Length"},
+	}))
+
+	dr.Register(&Da{12})
+	dr.Register(&Ba{23232})
+	dr.Register((*AAA)(nil), &Da{1222})
+
+	type qaa struct {
+		Username string `json:"username,omitempty"`
+		Password string `json:"password,omitempty"`
+		*Da
+	}
+
+	group := dr.Group("asd")
+	{
+		group.GET("/", func() {
+			log.Println("hello")
+		})
+
+		group.POST("/", func() {
+			log.Println("hello")
+		})
+
+		child := group.Group("a")
+		{
+			child.GET("qq", func() interface{} {
+				return &http_gin.Response{
+					StatusCode: 200,
+					Data: map[string]interface{}{
+						"id":   1,
+						"name": "fobus",
+						"age":  99,
+					},
+				}
+			})
+
+			child1 := child.Group("as", func() { println("as start") })
+			{
+				child1.GET("xua", func() {
+					println("xua start")
+				})
+			}
+		}
+	}
+
+	dr.POST("/",
+		func(r *http.Request, d AAA) interface{} {
+			log.Println()
+			d.Name()
+			return 1222
+		},
+		func(r *http.Request, i int, d *Da, ba *Ba, q map[string]interface{}) interface{} {
+			log.Println(i)
+			return &http_gin.Response{
+				StatusCode: 200,
+				Data:       q,
+			}
+		},
+	)
+
+	dr.Run("localhost:8080")
+
+	return
 
 	sokHttp := socket.NewWebSocket(&socket.Config{
 		ReadBufferSize:  1024,
