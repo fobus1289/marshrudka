@@ -77,8 +77,18 @@ func main() {
 		*Da
 	}
 
-	dr.POST("po", func() {
+	dr.GET("po", func(c *gin.Context) {
+		f, _ := c.FormFile("file")
 
+		o, _ := f.Open()
+
+		var b = make([]byte, f.Size)
+
+		o.Read(b)
+		log.Println(string(b))
+		log.Println(f)
+		log.Println(f.Filename)
+		log.Println(f.Size)
 	})
 
 	dr.POST("po2", func() {
@@ -87,100 +97,11 @@ func main() {
 
 	})
 
-	dr.POST("po4", func() {
-
+	dr.GET("fl/:name", func(c *gin.Context) interface{} {
+		filename := c.Param("name")
+		return http_gin.Response(200).
+			File("static/"+filename, "a")
 	})
-
-	adf := dr.Group("hello",
-		func() interface{} {
-			return nil
-		},
-		func(float642 float64) string {
-			log.Println(float642)
-			return "hello"
-		},
-		func() bool {
-			return false
-		},
-		func() int {
-			return 1235
-		},
-		func() int {
-			return 1235
-		},
-	)
-
-	adf.GET("/",
-		func(s string, b bool, i int, c *gin.Context) string {
-			log.Println(c.Query("id"))
-			return "hello 2"
-		},
-		func(s string, b bool, i int) interface{} {
-			var aa map[string]string
-
-			return aa
-		},
-	)
-
-	adf.GET("/b",
-		func() string {
-			return "hello 2"
-		},
-	)
-
-	adf.GET("/a",
-		func() string {
-			println(len(adf.RouterGroup.Handlers))
-			return "hello 2"
-		},
-	)
-
-	group := dr.Group("asd")
-	{
-		group.GET("/", func() {
-			log.Println("hello")
-		})
-
-		group.POST("/", func() {
-			log.Println("hello")
-		})
-
-		child := group.Group("a")
-		{
-			child.GET("qq", func() interface{} {
-				return &http_gin.Response{
-					StatusCode: 200,
-					Data: map[string]interface{}{
-						"id":   1,
-						"name": "fobus",
-						"age":  99,
-					},
-				}
-			})
-
-			child1 := child.Group("as", func() { println("as start") })
-			{
-				child1.GET("xua", func() {
-					println("xua start")
-				})
-			}
-		}
-	}
-
-	dr.POST("/",
-		func(r *http.Request, d AAA) interface{} {
-			log.Println()
-			d.Name()
-			return 1222
-		},
-		func(r *http.Request, i int, d *Da, ba *Ba, q map[string]interface{}) interface{} {
-			log.Println(i)
-			return &http_gin.Response{
-				StatusCode: 200,
-				Data:       q,
-			}
-		},
-	)
 
 	dr.Run("localhost:8080")
 

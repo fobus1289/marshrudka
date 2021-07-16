@@ -12,9 +12,8 @@ import (
 var (
 	httpResponse     = reflect.TypeOf((*http.ResponseWriter)(nil)).Elem()
 	httpRequest      = reflect.TypeOf(&http.Request{})
-	_throw           = reflect.TypeOf(&Throw{})
-	_response        = reflect.TypeOf(&Response{})
 	_context         = reflect.TypeOf(&gin.Context{})
+	_formFile        = reflect.TypeOf(&FormFile{})
 	methodNotAllowed = []byte("method not allowed")
 	expectsJSON      = "expects to receive a JSON object"
 )
@@ -157,11 +156,11 @@ func ret(retValues []reflect.Value, outValues map[reflect.Type]reflect.Value, c 
 
 		value := reflect.ValueOf(retVal)
 
-		if isThrow(value, c) || isResponse(value, c) {
+		if isThrow(value, c) || isResponse(value, c) || isFileResponse(value, c) {
 			return
 		}
 
-		c.Data(200, "text/plain;utf-8", getPrimitiveResult(value))
+		c.Data(200, "text/plain; charset=utf-8", getPrimitiveResult(value))
 
 		return
 	}
@@ -199,13 +198,39 @@ func isThrow(val reflect.Value, c *gin.Context) bool {
 	return false
 }
 
+func isFileResponse(val reflect.Value, c *gin.Context) bool {
+	switch t := val.Interface().(type) {
+	case File:
+		t.stream(c.Writer, c.Request)
+		return true
+	case *File:
+		t.stream(c.Writer, c.Request)
+		return true
+	}
+	return false
+}
+
 func isResponse(val reflect.Value, c *gin.Context) bool {
 	switch t := val.Interface().(type) {
-	case Response:
-		c.AbortWithStatusJSON(t.StatusCode, t.Data)
+	case Data:
+		data := getPrimitiveResult(reflect.ValueOf(t.Data))
+		if t.ContentDisposition != "" {
+			c.Writer.Header().Set("Content-Disposition", t.ContentDisposition)
+		}
+		if t.ContentType != "" {
+			c.Writer.Header().Set("Content-Type", t.ContentType)
+		}
+		_, _ = c.Writer.Write(data)
 		return true
-	case *Response:
-		c.AbortWithStatusJSON(t.StatusCode, t.Data)
+	case *Data:
+		data := getPrimitiveResult(reflect.ValueOf(t.Data))
+		if t.ContentDisposition != "" {
+			c.Writer.Header().Set("Content-Disposition", t.ContentDisposition)
+		}
+		if t.ContentType != "" {
+			c.Writer.Header().Set("Content-Type", t.ContentType)
+		}
+		_, _ = c.Writer.Write(data)
 		return true
 	}
 	return false
