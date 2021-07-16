@@ -1,10 +1,12 @@
 package http_gin
 
 import (
+	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
 	"reflect"
+	"strconv"
 )
 
 var (
@@ -43,7 +45,7 @@ func (s *Serv) Register(_interface interface{}, _struct ...interface{}) *Serv {
 	return s
 }
 
-func (s *Serv) parseFunc(handler ...interface{}) gin.HandlersChain {
+func (s *Serv) parseFunc(child bool, handler ...interface{}, ) gin.HandlersChain {
 
 	var handlersChain gin.HandlersChain
 
@@ -68,16 +70,24 @@ func (s *Serv) parseFunc(handler ...interface{}) gin.HandlersChain {
 			params = append(params, inType)
 		}
 
-		handlersChain = append(handlersChain, s.getFunc(handlerValue, outValue, params, j, l))
+		handlersChain = append(handlersChain, s.getFunc(handlerValue, outValue, params, j, l, child))
 	}
 
 	return handlersChain
 }
 
-func (s *Serv) getFunc(handlerValue reflect.Value, outValues map[reflect.Type]reflect.Value, params []reflect.Type, index, l int) func(context *gin.Context) {
+func (s *Serv) getFunc(handlerValue reflect.Value, outValues map[reflect.Type]reflect.Value, params []reflect.Type, index, l int, isChild bool) func(context *gin.Context) {
 	i := index
 
 	return func(context *gin.Context) {
+
+		if val, ok := context.Get("outValuesReflect"); ok {
+			if outValuesReflect, ok := val.(map[reflect.Type]reflect.Value); ok && len(outValuesReflect) > 0 {
+				for r, v := range outValuesReflect {
+					outValues[r] = v
+				}
+			}
+		}
 
 		var values []reflect.Value
 
@@ -126,36 +136,44 @@ func (s *Serv) getFunc(handlerValue reflect.Value, outValues map[reflect.Type]re
 			values = append(values, value)
 		}
 
-		ret(handlerValue.Call(values), outValues, context, l == i)
+		ret(handlerValue.Call(values), outValues, context, l == i, isChild)
 	}
 
 }
 
-func ret(retValues []reflect.Value, outValues map[reflect.Type]reflect.Value, c *gin.Context, last bool) {
+func ret(retValues []reflect.Value, outValues map[reflect.Type]reflect.Value, c *gin.Context, last, isChild bool) {
 
 	if len(retValues) < 1 {
 		return
 	}
 
-	if last {
+	if isChild && last {
 
-		value := reflect.ValueOf(retValues[0].Interface())
+		retVal := retValues[0].Interface()
 
-		if isThrow(value, c) {
+		if retVal == nil {
 			return
 		}
 
-		if isResponse(value, c) {
+		value := reflect.ValueOf(retVal)
+
+		if isThrow(value, c) || isResponse(value, c) {
 			return
 		}
 
-		c.JSON(http.StatusOK, value.Interface())
+		c.Data(200, "text/plain;utf-8", getPrimitiveResult(value))
 
 		return
 	}
 
 	for _, value := range retValues {
-		val := reflect.ValueOf(value.Interface())
+		retVal := value.Interface()
+
+		if retVal == nil {
+			continue
+		}
+
+		val := reflect.ValueOf(retVal)
 
 		if isThrow(val, c) {
 			return
@@ -164,22 +182,69 @@ func ret(retValues []reflect.Value, outValues map[reflect.Type]reflect.Value, c 
 		outValues[val.Type()] = val
 	}
 
+	c.Set("outValuesReflect", outValues)
 }
 
 func isThrow(val reflect.Value, c *gin.Context) bool {
-	if reflect.DeepEqual(val.Type(), _throw) {
-		outThrow := val.Interface().(*Throw)
-		c.AbortWithStatusJSON(outThrow.StatusCode, outThrow.Data)
+
+	switch t := val.Interface().(type) {
+	case Throw:
+		c.AbortWithStatusJSON(t.StatusCode, t.Data)
+		return true
+	case *Throw:
+		c.AbortWithStatusJSON(t.StatusCode, t.Data)
 		return true
 	}
+
 	return false
 }
 
 func isResponse(val reflect.Value, c *gin.Context) bool {
-	if reflect.DeepEqual(val.Type(), _response) {
-		outResponse := val.Interface().(*Response)
-		c.JSON(outResponse.StatusCode, outResponse.Data)
+	switch t := val.Interface().(type) {
+	case Response:
+		c.AbortWithStatusJSON(t.StatusCode, t.Data)
+		return true
+	case *Response:
+		c.AbortWithStatusJSON(t.StatusCode, t.Data)
 		return true
 	}
 	return false
+}
+
+func getPrimitiveResult(value reflect.Value) []byte {
+
+	if value.Kind() == reflect.Ptr {
+		value = value.Elem()
+	}
+
+	switch value.Kind() {
+
+	case reflect.Bool:
+		var boolBit = "false"
+		if value.Bool() {
+			boolBit = "true"
+		}
+		return []byte(boolBit)
+	case reflect.Int,
+		reflect.Int8,
+		reflect.Int16,
+		reflect.Int32,
+		reflect.Int64:
+		return []byte(strconv.FormatInt(value.Int(), 10))
+	case reflect.Uint,
+		reflect.Uint8,
+		reflect.Uint16,
+		reflect.Uint32,
+		reflect.Uint64:
+		return []byte(strconv.FormatUint(value.Uint(), 10))
+	case reflect.Float32,
+		reflect.Float64:
+		return []byte(strconv.FormatFloat(value.Float(), 'f', -1, 64))
+	case reflect.String:
+		return []byte(value.String())
+	case reflect.Struct, reflect.Slice, reflect.Interface, reflect.Map:
+		toByte, _ := json.Marshal(value.Interface())
+		return toByte
+	}
+	return nil
 }

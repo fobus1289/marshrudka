@@ -12,11 +12,13 @@ type Serv struct {
 }
 
 func NewDrive() *Serv {
-	return &Serv{g: gin.New(), services: map[reflect.Type]reflect.Value{}}
+	g := gin.New()
+	g.HandleMethodNotAllowed = true
+	return &Serv{g: g, services: map[reflect.Type]reflect.Value{}}
 }
 
 func (s *Serv) Use(handler ...interface{}) {
-	s.g.Use(s.parseFunc(handler...)...)
+	s.g.Use(s.parseFunc(false, handler...)...)
 }
 
 func (s *Serv) Run(addr string) {
@@ -24,14 +26,16 @@ func (s *Serv) Run(addr string) {
 }
 
 func (s *Serv) Group(name string, handler ...interface{}) *Group {
-	return &Group{
-		routerGroup: s.g.Group(name, s.parseFunc(handler...)...),
+	group := &Group{
+		RouterGroup: s.g.Group(name, s.parseFunc(false, handler...)...),
 		serv:        s,
 	}
+
+	return group
 }
 
 type Group struct {
-	routerGroup *gin.RouterGroup
+	RouterGroup *gin.RouterGroup
 	serv        *Serv
 	group       *Group
 }
@@ -39,7 +43,7 @@ type Group struct {
 func (g *Group) Group(name string, handler ...interface{}) *Group {
 
 	childGroup := &Group{
-		routerGroup: g.routerGroup.Group(name, g.serv.parseFunc(handler...)...),
+		RouterGroup: g.RouterGroup.Group(name, g.serv.parseFunc(false, handler...)...),
 		serv:        g.serv,
 	}
 
@@ -49,31 +53,31 @@ func (g *Group) Group(name string, handler ...interface{}) *Group {
 }
 
 func (g *Group) GET(name string, handler ...interface{}) *Group {
-	g.routerGroup.GET(name, g.serv.parseFunc(handler...)...)
+	g.RouterGroup.GET(name, g.serv.parseFunc(true, handler...)...)
 	return g
 }
 
 func (g *Group) POST(name string, handler ...interface{}) *Group {
-	g.routerGroup.POST(name, g.serv.parseFunc(handler...)...)
+	g.RouterGroup.POST(name, g.serv.parseFunc(true, handler...)...)
 	return g
 }
 
 func (g *Group) PUT(name string, handler ...interface{}) *Group {
-	g.routerGroup.PUT(name, g.serv.parseFunc(handler...)...)
+	g.RouterGroup.PUT(name, g.serv.parseFunc(true, handler...)...)
 	return g
 }
 
 func (g *Group) PATCH(name string, handler ...interface{}) *Group {
-	g.routerGroup.PATCH(name, g.serv.parseFunc(handler...)...)
+	g.RouterGroup.PATCH(name, g.serv.parseFunc(true, handler...)...)
 	return g
 }
 
 func (g *Group) ANY(name string, handler ...interface{}) *Group {
-	g.routerGroup.Any(name, g.serv.parseFunc(handler...)...)
+	g.RouterGroup.Any(name, g.serv.parseFunc(true, handler...)...)
 	return g
 }
 
 func (g *Group) DELETE(name string, handler ...interface{}) *Group {
-	g.routerGroup.DELETE(name, g.serv.parseFunc(handler...)...)
+	g.RouterGroup.DELETE(name, g.serv.parseFunc(true, handler...)...)
 	return g
 }

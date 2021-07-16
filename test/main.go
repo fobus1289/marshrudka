@@ -4,6 +4,7 @@ import (
 	http_gin "github.com/fobus1289/marshrudka/http-gin"
 	"github.com/fobus1289/marshrudka/socket"
 	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
 	"reflect"
@@ -49,12 +50,22 @@ func main() {
 
 	dr := http_gin.NewDrive()
 
+	dr.Use(func(c *gin.Context) {
+		c.Header("Accept", "*/*")
+		c.Header("Cache-Control", "no-cache")
+		c.Header("Accept-Encoding", "gzip, deflate, br")
+	})
+
 	dr.Use(cors.New(cors.Config{
 		AllowOrigins:  []string{"*"},
 		AllowMethods:  []string{"*"},
 		AllowHeaders:  []string{"*"},
 		ExposeHeaders: []string{"Content-Length"},
 	}))
+
+	dr.Use(func() float64 {
+		return 1222.88
+	})
 
 	dr.Register(&Da{12})
 	dr.Register(&Ba{23232})
@@ -65,6 +76,64 @@ func main() {
 		Password string `json:"password,omitempty"`
 		*Da
 	}
+
+	dr.POST("po", func() {
+
+	})
+
+	dr.POST("po2", func() {
+
+	}, func() {
+
+	})
+
+	dr.POST("po4", func() {
+
+	})
+
+	adf := dr.Group("hello",
+		func() interface{} {
+			return nil
+		},
+		func(float642 float64) string {
+			log.Println(float642)
+			return "hello"
+		},
+		func() bool {
+			return false
+		},
+		func() int {
+			return 1235
+		},
+		func() int {
+			return 1235
+		},
+	)
+
+	adf.GET("/",
+		func(s string, b bool, i int, c *gin.Context) string {
+			log.Println(c.Query("id"))
+			return "hello 2"
+		},
+		func(s string, b bool, i int) interface{} {
+			var aa map[string]string
+
+			return aa
+		},
+	)
+
+	adf.GET("/b",
+		func() string {
+			return "hello 2"
+		},
+	)
+
+	adf.GET("/a",
+		func() string {
+			println(len(adf.RouterGroup.Handlers))
+			return "hello 2"
+		},
+	)
 
 	group := dr.Group("asd")
 	{
