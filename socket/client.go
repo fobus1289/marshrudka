@@ -92,6 +92,10 @@ func (w *WebSocket) NewClient(res http.ResponseWriter, req *http.Request, header
 	return client, nil
 }
 
+func (c *Client) Emit(name string, data interface{}) {
+	c.WriteBytes(append([]byte(name), getPrimitiveResult(reflect.ValueOf(data))...))
+}
+
 func (c *Client) Clients() Clients {
 	return c.socket.clients
 }
