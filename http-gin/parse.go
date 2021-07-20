@@ -142,6 +142,13 @@ func (s *Serv) getFunc(handlerValue reflect.Value, outValues map[reflect.Type]re
 
 func ret(retValues []reflect.Value, outValues map[reflect.Type]reflect.Value, c *gin.Context, last, isChild bool) {
 
+	if isChild && last {
+		c.Set("outValuesReflect", nil)
+		for s, _ := range outValues {
+			delete(outValues, s)
+		}
+	}
+
 	if len(retValues) < 1 {
 		return
 	}

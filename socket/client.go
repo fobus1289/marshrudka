@@ -93,7 +93,7 @@ func (w *WebSocket) NewClient(res http.ResponseWriter, req *http.Request, header
 }
 
 func (c *Client) Emit(name string, data interface{}) {
-	c.WriteBytes(append([]byte(name), getPrimitiveResult(reflect.ValueOf(data))...))
+	c.WriteBytes(append([]byte(name+":"), getPrimitiveResult(reflect.ValueOf(data))...))
 }
 
 func (c *Client) Clients() Clients {
@@ -109,14 +109,14 @@ func (c *Client) ChannelClients(name string) Clients {
 }
 
 func (c *Client) BroadcastMeToo(name string, data interface{}) {
-	ret := append([]byte(name), getPrimitiveResult(reflect.ValueOf(data))...)
+	ret := append([]byte(name+":"), getPrimitiveResult(reflect.ValueOf(data))...)
 	c.Clients().ForEach(func(client *Client) {
 		client.WriteBytes(ret)
 	})
 }
 
 func (c *Client) BroadcastClients(name string, data interface{}) {
-	ret := append([]byte(name), getPrimitiveResult(reflect.ValueOf(data))...)
+	ret := append([]byte(name+":"), getPrimitiveResult(reflect.ValueOf(data))...)
 	c.Clients().Filter(func(client *Client) bool {
 		return c != client
 	}).ForEach(func(client *Client) {
@@ -125,7 +125,7 @@ func (c *Client) BroadcastClients(name string, data interface{}) {
 }
 
 func (c *Client) BroadcastChannel(event, name string, data interface{}) {
-	ret := append([]byte(event), getPrimitiveResult(reflect.ValueOf(data))...)
+	ret := append([]byte(event+":"), getPrimitiveResult(reflect.ValueOf(data))...)
 	c.ChannelClients(name).Filter(func(client *Client) bool {
 		return c != client
 	}).ForEach(func(client *Client) {
