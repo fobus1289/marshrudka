@@ -79,7 +79,7 @@ func (r *Request) TryParamGet(key string, out *string) (ok bool) {
 	if value == "" {
 		return false
 	}
-	out = &value
+	*out = value
 	return true
 }
 
@@ -90,7 +90,7 @@ func (r *Request) TryParamGetInt(key string, out *int64) (ok bool) {
 		return false
 	}
 
-	out = &value
+	 *out = value
 
 	return true
 }
@@ -103,7 +103,7 @@ func (r *Request) TryParamGetUInt(key string, out *uint64) (ok bool) {
 		return false
 	}
 
-	out = &value
+	*out = value
 
 	return true
 }
@@ -115,7 +115,7 @@ func (r *Request) TryParamGetFloat(key string, out *float64) (ok bool) {
 		return false
 	}
 
-	out = &value
+	*out = value
 
 	return true
 }
@@ -128,7 +128,7 @@ func (r *Request) TryParamGetBool(key string, out *bool) (ok bool) {
 		return false
 	}
 
-	out = &value
+	*out = value
 
 	return true
 }
@@ -164,7 +164,7 @@ func (r *Request) TryQueryGet(key string, out *string) (ok bool) {
 	if value == "" {
 		return false
 	}
-	out = &value
+	*out = value
 	return true
 }
 
@@ -176,7 +176,7 @@ func (r *Request) TryQueryGetInt(key string, out *int64) (ok bool) {
 		return false
 	}
 
-	out = &value
+	*out = value
 
 	return true
 }
@@ -189,7 +189,7 @@ func (r *Request) TryQueryGetUInt(key string, out *uint64) (ok bool) {
 		return false
 	}
 
-	out = &value
+	*out = value
 
 	return true
 }
@@ -201,7 +201,7 @@ func (r *Request) TryQueryGetFloat(key string, out *float64) (ok bool) {
 		return false
 	}
 
-	out = &value
+	*out = value
 
 	return true
 }
@@ -214,7 +214,7 @@ func (r *Request) TryQueryGetBool(key string, out *bool) (ok bool) {
 		return false
 	}
 
-	out = &value
+	*out = value
 
 	return true
 }
