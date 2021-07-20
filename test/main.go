@@ -110,5 +110,5 @@ func main() {
 		return router.Response(200).File("static/test.txt", "ok.txt").Download()
 	})
 
-	route.Run(":8080")
+	route.Run("127.0.0.1:8080")
 }

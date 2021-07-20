@@ -73,10 +73,10 @@ func implement(_interface, _struct interface{}) bool {
 
 func (d *Drive) Run(addr string) {
 
-	showAddr := fmt.Sprintf("%s", addr)
+	showAddr := strings.TrimSuffix(addr, "/") + "/"
 
 	if strings.HasPrefix(addr, ":") {
-		showAddr = "localhost/" + showAddr[1:] + "/"
+		showAddr = "localhost" + showAddr + "/"
 	}
 
 	bigLen := 0
