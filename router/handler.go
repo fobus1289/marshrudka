@@ -145,6 +145,10 @@ func (h *handler) ret(retValues []reflect.Value, refMap reflectMap, w http.Respo
 
 	val := ret[0].Interface()
 
+	if val == nil {
+		return false
+	}
+
 	_value := reflect.ValueOf(val)
 
 	if isThrow(_value, w) || isResponse(_value, w) || isFileResponse(_value, w, r) {

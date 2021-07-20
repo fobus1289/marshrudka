@@ -1,9 +1,11 @@
 package router
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"strings"
 )
 
 type Drive struct {
@@ -70,6 +72,38 @@ func implement(_interface, _struct interface{}) bool {
 }
 
 func (d *Drive) Run(addr string) {
+
+	showAddr := fmt.Sprintf("%s", addr)
+
+	if strings.HasPrefix(addr, ":") {
+		showAddr = "localhost/" + showAddr[1:] + "/"
+	}
+
+	bigLen := 0
+
+	for _, r := range d.routes {
+		if len(showAddr+r.path) > bigLen {
+			bigLen = len(showAddr + r.path)
+		}
+	}
+
+	for _, r := range d.routes {
+		var methods []string
+		for s, _ := range r.methods {
+			methods = append(methods, s)
+		}
+		path := showAddr + strings.TrimPrefix(r.path, "/")
+
+		pathLen := len(path) - 1
+
+		if pathLen < bigLen {
+			fmt.Println("path-> ", path, strings.Repeat(" ", bigLen-pathLen), " methods ", strings.Join(methods, ","))
+		} else {
+			fmt.Println("path-> ", path, " methods ", strings.Join(methods, ","))
+		}
+
+	}
+
 	log.Fatalln(http.ListenAndServe(addr, d))
 }
 

@@ -101,24 +101,21 @@ func (h *_http) Stream(filename string, data interface{}) *Data {
 }
 
 func (t *Throw) Json(data interface{}) *Throw {
-	return &Throw{
-		ContentType: "application/json; charset=utf-8",
-		Data:        data,
-	}
+	t.ContentType = "application/json; charset=utf-8"
+	t.Data = data
+	return t
 }
 
 func (t *Throw) Text(data interface{}) *Throw {
-	return &Throw{
-		ContentType: "text/plain; charset=utf-8",
-		Data:        data,
-	}
+	t.ContentType = "text/plain; charset=utf-8"
+	t.Data = data
+	return t
 }
 
 func (t *Throw) Html(data interface{}) *Throw {
-	return &Throw{
-		ContentType: "text/html; charset=utf-8",
-		Data:        data,
-	}
+	t.ContentType = "text/html; charset=utf-8"
+	t.Data = data
+	return t
 }
 
 func (d *Drive) Dep(owner interface{}) {

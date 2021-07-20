@@ -6,6 +6,7 @@ import (
 )
 
 type route struct {
+	path       string
 	match      *regexp.Regexp
 	paramNames []string
 	methods    map[string]bool

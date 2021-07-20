@@ -22,6 +22,7 @@ func (d *Drive) GET(name string, handler ...interface{}) {
 	match, names := parsePath(name)
 
 	route := &route{
+		path:       name,
 		match:      match,
 		paramNames: names,
 		methods: map[string]bool{
@@ -40,6 +41,7 @@ func (d *Drive) POST(name string, handler ...interface{}) {
 	match, names := parsePath(name)
 
 	route := &route{
+		path:       name,
 		match:      match,
 		paramNames: names,
 		methods: map[string]bool{
@@ -60,6 +62,7 @@ func (d *Drive) PUT(name string, handler ...interface{}) {
 	match, names := parsePath(name)
 
 	route := &route{
+		path:       name,
 		match:      match,
 		paramNames: names,
 		methods: map[string]bool{
@@ -78,6 +81,7 @@ func (d *Drive) PATCH(name string, handler ...interface{}) {
 
 	match, names := parsePath(name)
 	route := &route{
+		path:       name,
 		match:      match,
 		paramNames: names,
 		methods: map[string]bool{
@@ -98,6 +102,7 @@ func (d *Drive) DELETE(name string, handler ...interface{}) {
 	match, names := parsePath(name)
 
 	route := &route{
+		path:       name,
 		match:      match,
 		paramNames: names,
 		methods: map[string]bool{
@@ -116,6 +121,7 @@ func (d *Drive) ANY(name string, handler ...interface{}) {
 
 	match, names := parsePath(name)
 	route := &route{
+		path:       name,
 		match:      match,
 		paramNames: names,
 		methods: map[string]bool{
@@ -140,6 +146,7 @@ func (d *Drive) MATCH(name string, methods []string, handler ...interface{}) {
 		methodsMap[strings.ToUpper(method)] = true
 	}
 	route := &route{
+		path:       name,
 		match:      match,
 		paramNames: names,
 		methods:    methodsMap,

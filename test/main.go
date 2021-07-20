@@ -9,21 +9,21 @@ import (
 
 func CORSEnabledFunction(w http.ResponseWriter, r *http.Request) interface{} {
 	// Set CORS headers for the preflight request
-
-	//ctx:= r.WithContext(context.Background())
-	hj, ok := w.(http.Hijacker)
-
-	if ok {
-
-		conn, _, _ := hj.Hijack()
-
-		conn.Close()
-
-		return router.Throw{
-			StatusCode: 204,
-		}
-	}
-
+	///*
+	//	//ctx:= r.WithContext(context.Background())
+	//	hj, ok := w.(http.Hijacker)
+	//
+	//	if ok {
+	//
+	//		conn, _, _ := hj.Hijack()
+	//
+	//		conn.Close()
+	//
+	//		return router.Throw{
+	//			StatusCode: 204,
+	//		}
+	//	}
+	//*/
 	if r.Method == http.MethodOptions {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST")
@@ -40,11 +40,6 @@ func CORSEnabledFunction(w http.ResponseWriter, r *http.Request) interface{} {
 }
 
 func main() {
-
-
-
-	sok()
-
 
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
@@ -76,15 +71,37 @@ func main() {
 
 	//route.Use(CORSEnabledFunction)
 
+	route.MATCH("/", []string{"get", "post", "put"}, func() {
+
+	})
+
+	adminGroup := route.Group("/admin")
+	{
+		adminGroup.GET("/user", func() {
+			println("admin/user")
+		})
+
+		adminCompanyGroup := adminGroup.Group("/company")
+		{
+			adminCompanyGroup.GET("/user/", func() {
+				println("admin/company/user get")
+			})
+			adminCompanyGroup.POST("/user/", func() {
+				println("admin/company/user post")
+			})
+		}
+
+	}
+
 	route.ANY("/any/:id{n}", func(request *router.Request) interface{} {
 
-		log.Println(request.Request.ParseMultipartForm(0))
-		log.Println(request.Request.MultipartForm)
+		//log.Println(request.Request.ParseMultipartForm(0))
+		//log.Println(request.Request.MultipartForm)
 
 		file, err := request.FormFile("file")
 
 		if err != nil {
-			return nil
+			return router.Response(400).Throw().Text("bad request")
 		}
 
 		err = file.SetName("rd").Store("static")
@@ -95,4 +112,3 @@ func main() {
 
 	route.Run(":8080")
 }
-
