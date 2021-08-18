@@ -12,7 +12,6 @@ type Drive struct {
 	services reflectMap
 	routes   routes
 	handlers handlers
-	clients  map[*http.Request]bool
 	shutdown bool
 }
 
@@ -20,16 +19,11 @@ func (d *Drive) Shutdown() {
 	d.shutdown = true
 }
 
-func (d *Drive) Clients() int {
-	return len(d.clients)
-}
-
 func NewRouter() *Drive {
 	return &Drive{
 		services: reflectMap{},
 		routes:   nil,
 		handlers: nil,
-		clients:  map[*http.Request]bool{},
 	}
 }
 

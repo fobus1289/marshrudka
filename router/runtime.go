@@ -13,8 +13,6 @@ func (d *Drive) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var ref = reflectMap{}
-	d.clients[r] = true
-	defer delete(d.clients, r)
 
 	if !d.handlers.each(w, r, ref) {
 		return
