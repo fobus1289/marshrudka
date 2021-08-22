@@ -24,7 +24,7 @@ type _map map[string]interface{}
 type Channels map[string]Clients
 
 type WebSocket struct {
-	mux            *sync.RWMutex
+	mux            *sync.Mutex
 	upgrader       *websocket.Upgrader
 	services       map[reflect.Type]reflect.Value
 	clients        Clients
@@ -49,6 +49,25 @@ func (w *WebSocket) Connection(fn func(client *Client, r *http.Request)) {
 
 func (w *WebSocket) Disconnection(fn func(client *Client)) {
 	w._disconnection = fn
+}
+
+func (w *WebSocket) Delete(in *Client) {
+	w.mux.Lock()
+	defer w.mux.Unlock()
+	for key, clients := range w.channels {
+		for i, client := range clients {
+			if in == client {
+				w.channels[key] = append(clients[:i], clients[i+1:]...)
+				break
+			}
+		}
+	}
+
+	for i, client := range w.clients {
+		if in == client {
+			w.clients = append(w.clients[:i], w.clients[i+1:]...)
+		}
+	}
 }
 
 func (w *WebSocket) Register(_interface interface{}, _struct ...interface{}) *WebSocket {
@@ -140,7 +159,7 @@ func NewWebSocket(config *Config) *WebSocket {
 	}
 
 	return &WebSocket{
-		mux:            &sync.RWMutex{},
+		mux:            &sync.Mutex{},
 		upgrader:       upgrader,
 		_connection:    func(client *Client, r *http.Request) {},
 		_disconnection: func(client *Client) {},

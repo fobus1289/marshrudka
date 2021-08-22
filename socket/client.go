@@ -136,32 +136,32 @@ func (c *Client) BroadcastChannel(event, name string, data interface{}) {
 func (c *Client) Write(data interface{}) {
 	if err := c.Conn.WriteMessage(websocket.TextMessage, getPrimitiveResult(reflect.ValueOf(data))); err != nil {
 		c.socket._disconnection(c)
-		c.socket.clients.Delete(c)
-		c.socket.channels.Delete(c)
+		c.socket.Delete(c)
+		c.socket.Delete(c)
 	}
 }
 
 func (c *Client) WriteBytes(data []byte) {
 	if err := c.Conn.WriteMessage(websocket.TextMessage, data); err != nil {
 		c.socket._disconnection(c)
-		c.socket.clients.Delete(c)
-		c.socket.channels.Delete(c)
+		c.socket.Delete(c)
+		c.socket.Delete(c)
 	}
 }
 
 func (c *Client) WriteString(data string) {
 	if err := c.Conn.WriteMessage(websocket.TextMessage, []byte(data)); err != nil {
 		c.socket._disconnection(c)
-		c.socket.clients.Delete(c)
-		c.socket.channels.Delete(c)
+		c.socket.Delete(c)
+		c.socket.Delete(c)
 	}
 }
 
 func (c *Client) read() {
 
 	defer func() {
-		c.socket.clients.Delete(c)
-		c.socket.channels.Delete(c)
+		c.socket.Delete(c)
+		c.socket.Delete(c)
 		c.socket._disconnection(c)
 		_ = c.Conn.Close()
 	}()
