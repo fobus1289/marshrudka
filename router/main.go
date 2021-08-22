@@ -6,13 +6,34 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"sync"
 )
 
 type Drive struct {
-	services reflectMap
-	routes   routes
-	handlers handlers
-	shutdown bool
+	services    reflectMap
+	routes      routes
+	handlers    handlers
+	mux         *sync.Mutex
+	clientCount int
+	shutdown    bool
+}
+
+func (d *Drive) increment() {
+	d.mux.Lock()
+	defer d.mux.Unlock()
+	d.clientCount++
+}
+
+func (d *Drive) decrement() {
+	d.mux.Lock()
+	defer d.mux.Unlock()
+	d.clientCount--
+}
+
+func (d *Drive) GetClientCount() int {
+	d.mux.Lock()
+	defer d.mux.Unlock()
+	return d.clientCount
 }
 
 func (d *Drive) Shutdown() {
@@ -24,6 +45,7 @@ func NewRouter() *Drive {
 		services: reflectMap{},
 		routes:   nil,
 		handlers: nil,
+		mux:      &sync.Mutex{},
 	}
 }
 

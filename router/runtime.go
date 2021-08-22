@@ -12,6 +12,8 @@ func (d *Drive) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	d.increment()
+	defer d.decrement()
 	var ref = reflectMap{}
 
 	if !d.handlers.each(w, r, ref) {
