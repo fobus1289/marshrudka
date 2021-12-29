@@ -2,9 +2,10 @@
 package main
 
 import (
-	"github.com/fobus1289/marshrudka/router"
 	"log"
 	"math/rand"
+
+	"github.com/fobus1289/marshrudka/router"
 )
 
 type User struct {
