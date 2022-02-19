@@ -7,13 +7,6 @@ import (
 
 func (d *Drive) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-	if d.shutdown {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		return
-	}
-
-	d.increment()
-	defer d.decrement()
 	var ref = reflectMap{}
 
 	if !d.handlers.each(w, r, ref) {
