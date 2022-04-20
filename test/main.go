@@ -1,143 +1,178 @@
-//example 1
 package main
 
 import (
+	"embed"
+	"github.com/fobus1289/marshrudka/router"
+	"github.com/fobus1289/marshrudka/router/request"
+	"github.com/fobus1289/marshrudka/router/response"
 	"log"
 	"math/rand"
-
-	"github.com/fobus1289/marshrudka/router"
+	"net/http"
+	"reflect"
+	"strconv"
+	"sync"
 )
 
-type User struct {
-	Id    int64  `json:"id"`
-	Login string `json:"login"`
-	Name  string `json:"name"`
-	Age   int    `json:"age"`
+type user struct {
+	Id     int    `form:"id" json:"id" validate:"max=1,min=0"`
+	Name   string `form:"name" json:"name" validate:"min=4,nonnil"`
+	Age    int    `form:"age" json:"age"`
+	Test   int    `form:"test" json:"test"`
+	Status bool   `form:"status" json:"status"`
+	NewVal int    `form:"comp" json:"new_val"`
 }
 
-type Users []*User
-
-var ResponseUsers = Users{
-	&User{
-		Id:    1,
-		Login: "login_1",
-		Name:  "Jhone",
-		Age:   18,
-	},
-	&User{
-		Id:    2,
-		Login: "login_2",
-		Name:  "Doe",
-		Age:   35,
-	},
-	&User{
-		Id:    3,
-		Login: "login_3",
-		Name:  "Bob",
-		Age:   27,
-	},
+func (u *user) Validate() bool {
+	return false
 }
 
-/*
-	Параметры могут быть пустыми
-	Возвращаемый тип может быть любым
-	interface{} итд, если это ссылочный тип, то он преобразуется в json
-*/
-func GetAllUsers() Users {
-	log.Println("get all users")
-	return ResponseUsers
+type Xml struct {
+	XMLName string      `xml:"users"`
+	Data    interface{} `json:"user"`
 }
 
-/*
-	если не известный параметр в функции и он ссылочный типа то он конвертироваеца в тип в параметре
-	преметивы не допускаются
-*/
-func CreateUser(user *User) interface{} {
+func Set(v interface{}) bool {
+	var refValue = reflect.ValueOf(v)
 
-	for _, responseUser := range ResponseUsers {
-		if responseUser.Login == user.Login {
-			return router.Response(400).
-				Throw().Json(
-				map[string]string{
-					"message": "user login is duplicate",
-				},
-			)
-		}
+	if refValue.Kind() != reflect.Ptr {
+		return false
 	}
 
-	user.Id = rand.Int63() % 100
-
-	return user
-}
-
-/*
-*router.Request это служебная структура роутера
- */
-func DeleteUser(request *router.Request) interface{} {
-	//var id = request.Query("id")
-	//var id = request.QueryGetInt("id")
-
-	var id int64
-
-	if !request.TryQueryGetInt("id", &id) {
-		return router.Response(400).
-			Throw().Json(
-			map[string]string{
-				"message": "id can be empty or string",
-			},
-		)
-	}
-
-	for i, user := range ResponseUsers {
-		if user.Id == id {
-
-			ResponseUsers = append(ResponseUsers[:i], ResponseUsers[i+1:]...)
-
-			return true
-			//return 1
-			//return "user deleted" + strconv.FormatInt(id, 10)
-			//return user
-		}
-	}
-
-	return router.Response(400).
-		Throw().Json(
-		map[string]string{
-			"message": "user not found",
-		},
-	)
-}
-
-/*
-	Динамическая реализация параметров таких как
-	http.ResponseWriter
-	*http.Request
- 	*router.Request
-*/
-func GetUserById(request *router.Request) interface{} {
-	var id = request.QueryGetInt("id")
-
-	for _, user := range ResponseUsers {
-		if user.Id == id {
-			return router.Response(200).Json(user)
-		}
-	}
-
-	return router.Response(404).Throw().Json(
-		map[string]string{
-			"message": "user not found",
-		},
+	var (
+		key   = refValue.Elem()
+		value = key
 	)
 
+	if !key.IsValid() {
+		return false
+	}
+
+	if key.Kind() == reflect.Interface {
+		if value = key.Elem(); value.Kind() == reflect.Invalid {
+			return false
+		}
+
+		log.Println(key.Type())
+		log.Println(value.Type())
+		return true
+	}
+
+	log.Println(refValue.Type())
+	log.Println(value.Type())
+
+	return true
 }
+
+type Sht struct {
+	Counter int
+	*sync.Mutex
+}
+
+type name interface {
+}
+
+type asd struct {
+	Id   int    `json:"id" form:"id" validate:""`
+	Name string `form:"name" json:"name" validate:"min=4,nonnil"`
+}
+
+func (a *asd) Validate() bool {
+	return false
+}
+
+//go:embed static/dist/*
+var frontend embed.FS
 
 func main() {
-	var drive = router.NewRouter()
 
-	drive.GET("/", GetAllUsers)
-	drive.POST("/", CreateUser)
-	drive.DELETE("/", DeleteUser)
-	drive.GET("/by-id", GetUserById)
+	//log.Println(os.Stat("static"))
+	//
+	//return
+	var u = &user{
+		Id:     1,
+		Name:   "hello user",
+		Age:    18,
+		Test:   123,
+		Status: true,
+		NewVal: 222,
+	}
 
-	drive.Run(":8081")
+	var (
+		in = request.IModel(u)
+		//out request.IModel
+		//outStruct *user
+	)
+
+	var server = router.NewServer()
+	server.SetService(&in)
+
+	//server.GetService(&out)
+	//log.Println(out.Validate())
+
+	var userGroup = server.Group("user")
+	{
+		userGroup.POST(":id/:name", func(req request.IRequest, is []int, out *user) interface{} {
+			log.Println(req.Param("name"))
+			log.Println(req.HasParam("id"))
+			log.Println(req.HasQuery("id"))
+			log.Println(out)
+			return response.Response().Ok(200).Json(is)
+		}).WhereIn(map[string]string{
+			"id":   `\d+`,
+			"name": `(\w+)`,
+		})
+	}
+
+	server.GET("/",
+		func(req request.IRequest) interface{} {
+			var users = make([]*user, 0, 25)
+			log.Println(u)
+			for i := 0; i < 25; i++ {
+				users = append(users,
+					&user{
+						Id:     rand.Int(),
+						Name:   strconv.FormatInt(rand.Int63(), 10),
+						Age:    rand.Int(),
+						Test:   rand.Int(),
+						Status: rand.Int()%2 == 0,
+						NewVal: rand.Int(),
+					},
+				)
+			}
+			return int8(122)
+		},
+		func(req request.IRequest) interface{} {
+			return request.IModel(&user{})
+		},
+		func(req request.IRequest) interface{} {
+			return nil
+		},
+	)
+
+	//go func() {
+	//	for {
+	//		time.Sleep(1000 * time.Millisecond)
+	//		server.HasClient()
+	//	}
+	//}()
+	server.GET("*/dddd", func() {
+		log.Println("dddd")
+	}).Where("*", "ddqqq")
+
+	server.GET("*/bb", func() {
+
+	}).Where("*", "bd")
+
+	server.GET("*/a", func() {
+
+	}).Where("*", "das")
+
+	server.GET("*/ccc", func() {
+		log.Println("fas")
+	}).Where("*", "fas")
+
+	server.GET("*", http.FileServer(http.Dir("static/dist"))).
+		Where("*", "static.*|asset.*").StripPrefix("static")
+
+	log.Fatalln(server.Run(":8080"))
 }
