@@ -1,78 +1,178 @@
 package main
 
 import (
-	"fmt"
-	v2 "github.com/fobus1289/marshrudka/v2"
+	"embed"
+	"github.com/fobus1289/marshrudka/router"
+	"github.com/fobus1289/marshrudka/router/request"
+	"github.com/fobus1289/marshrudka/router/response"
 	"log"
-	"regexp"
-	"strings"
+	"math/rand"
+	"net/http"
+	"reflect"
+	"strconv"
+	"sync"
 )
 
-func main() {
-	type user struct {
-		Id   int
-		Name string
-		Age  int
+type user struct {
+	Id     int    `form:"id" json:"id" validate:"max=1,min=0"`
+	Name   string `form:"name" json:"name" validate:"min=4,nonnil"`
+	Age    int    `form:"age" json:"age"`
+	Test   int    `form:"test" json:"test"`
+	Status bool   `form:"status" json:"status"`
+	NewVal int    `form:"comp" json:"new_val"`
+}
+
+func (u *user) Validate() bool {
+	return false
+}
+
+type Xml struct {
+	XMLName string      `xml:"users"`
+	Data    interface{} `json:"user"`
+}
+
+func Set(v interface{}) bool {
+	var refValue = reflect.ValueOf(v)
+
+	if refValue.Kind() != reflect.Ptr {
+		return false
 	}
-	var server = v2.NewServer()
 
-	server.GET(":id/:name/:age", func(request *v2.Request, object interface{}) interface{} {
-		return v2.Response().Ok(201).Json([]string{"1", "@", "!"})
-	})
+	var (
+		key   = refValue.Elem()
+		value = key
+	)
 
-	server.GET("/", func() interface{} {
-		return v2.Response().Ok(201).Xml(&user{
-			Id:   1,
-			Name: "fobus",
-			Age:  18,
+	if !key.IsValid() {
+		return false
+	}
+
+	if key.Kind() == reflect.Interface {
+		if value = key.Elem(); value.Kind() == reflect.Invalid {
+			return false
+		}
+
+		log.Println(key.Type())
+		log.Println(value.Type())
+		return true
+	}
+
+	log.Println(refValue.Type())
+	log.Println(value.Type())
+
+	return true
+}
+
+type Sht struct {
+	Counter int
+	*sync.Mutex
+}
+
+type name interface {
+}
+
+type asd struct {
+	Id   int    `json:"id" form:"id" validate:""`
+	Name string `form:"name" json:"name" validate:"min=4,nonnil"`
+}
+
+func (a *asd) Validate() bool {
+	return false
+}
+
+//go:embed static/dist/*
+var frontend embed.FS
+
+func main() {
+
+	//log.Println(os.Stat("static"))
+	//
+	//return
+	var u = &user{
+		Id:     1,
+		Name:   "hello user",
+		Age:    18,
+		Test:   123,
+		Status: true,
+		NewVal: 222,
+	}
+
+	var (
+		in = request.IModel(u)
+		//out request.IModel
+		//outStruct *user
+	)
+
+	var server = router.NewServer()
+	server.SetService(&in)
+
+	//server.GetService(&out)
+	//log.Println(out.Validate())
+
+	var userGroup = server.Group("user")
+	{
+		userGroup.POST(":id/:name", func(req request.IRequest, is []int, out *user) interface{} {
+			log.Println(req.Param("name"))
+			log.Println(req.HasParam("id"))
+			log.Println(req.HasQuery("id"))
+			log.Println(out)
+			return response.Response().Ok(200).Json(is)
+		}).WhereIn(map[string]string{
+			"id":   `\d+`,
+			"name": `(\w+)`,
 		})
-	})
+	}
 
-	server.POST("/", func() string {
-		return "POST"
-	})
+	server.GET("/",
+		func(req request.IRequest) interface{} {
+			var users = make([]*user, 0, 25)
+			log.Println(u)
+			for i := 0; i < 25; i++ {
+				users = append(users,
+					&user{
+						Id:     rand.Int(),
+						Name:   strconv.FormatInt(rand.Int63(), 10),
+						Age:    rand.Int(),
+						Test:   rand.Int(),
+						Status: rand.Int()%2 == 0,
+						NewVal: rand.Int(),
+					},
+				)
+			}
+			return int8(122)
+		},
+		func(req request.IRequest) interface{} {
+			return request.IModel(&user{})
+		},
+		func(req request.IRequest) interface{} {
+			return nil
+		},
+	)
 
-	server.PUT("/", func() string {
-		return "PUT"
-	})
+	//go func() {
+	//	for {
+	//		time.Sleep(1000 * time.Millisecond)
+	//		server.HasClient()
+	//	}
+	//}()
+	server.GET("*/dddd", func() {
+		log.Println("dddd")
+	}).Where("*", "ddqqq")
 
-	server.PATCH("/", func() string {
-		return "PATCH"
-	})
+	server.GET("*/bb", func() {
 
-	server.DELETE("/", func() string {
-		return "DELETE"
-	})
+	}).Where("*", "bd")
+
+	server.GET("*/a", func() {
+
+	}).Where("*", "das")
+
+	server.GET("*/ccc", func() {
+		log.Println("fas")
+	}).Where("*", "fas")
+
+	server.GET("*", http.FileServer(http.Dir("static/dist"))).
+		Where("*", "static.*|asset.*").StripPrefix("static")
 
 	log.Fatalln(server.Run(":8080"))
-}
-
-func createRequestRegular(regular string) (*regexp.Regexp, error) {
-
-	var compile, err = regexp.Compile(regular)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return compile, nil
-}
-
-func getRegular(urlPath string) string {
-	urlPath = strings.TrimPrefix(urlPath, "/")
-	urlPath = strings.TrimSuffix(urlPath, "/")
-	var regular = regexp.MustCompile(`(:[a-zA-Z]+)`)
-	urlPath = regular.ReplaceAllString(urlPath, `([0-9a-zA-Z]+)`)
-	return fmt.Sprintf("^(/?%s/?)$", urlPath)
-}
-
-func getPattern(urlPath string) []string {
-	var regular = regexp.MustCompile(`(:[a-zA-Z]+)`)
-
-	if result := regular.FindAllString(urlPath, -1); len(result) > 0 {
-		var str = strings.Replace(strings.Join(result, " "), ":", "", -1)
-		return strings.Split(str, " ")
-	}
-
-	return []string{}
 }

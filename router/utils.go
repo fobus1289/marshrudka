@@ -1,387 +1,319 @@
 package router
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"io/ioutil"
+	request2 "github.com/fobus1289/marshrudka/router/request"
 	"log"
-	"mime/multipart"
 	"net/http"
-	"net/textproto"
-	"os"
+	"path"
 	"reflect"
-	"strconv"
+	"regexp"
+	"sort"
 	"strings"
 )
 
-const invalid = reflect.Invalid
-
-type reflectMap map[reflect.Type]reflect.Value
-
 var (
-	_httpRes         = reflect.TypeOf((*http.ResponseWriter)(nil)).Elem()
-	_httpReq         = reflect.TypeOf(&http.Request{})
-	_throw           = reflect.TypeOf(&Throw{})
-	_data            = reflect.TypeOf(&Data{})
-	_request         = reflect.TypeOf(&Request{})
+	httpRes          = reflect.TypeOf((*http.ResponseWriter)(nil)).Elem()
+	iFormFile        = reflect.TypeOf((*request2.IFormFile)(nil)).Elem()
+	iModel           = reflect.TypeOf(request2.IModel(nil))
+	iService         = reflect.TypeOf((*IService)(nil)).Elem()
+	httpReq          = reflect.TypeOf(&http.Request{})
+	request          = reflect.TypeOf((*request2.IRequest)(nil)).Elem()
+	iParam           = reflect.TypeOf((*request2.IParam)(nil)).Elem()
+	iQueryParam      = reflect.TypeOf((*request2.IQueryParam)(nil)).Elem()
+	whatWentWrong    = []byte("what went wrong :(")
+	emptyBody        = []byte("empty body :(")
 	methodNotAllowed = []byte("method not allowed")
-	expectsJSON      = []byte("expects to receive a JSON object")
 )
 
-type FormFile struct {
-	Name   string
-	Data   []byte
-	Size   int64
-	perm   os.FileMode
-	Header textproto.MIMEHeader
+type (
+	reflectMap        map[reflect.Type]reflect.Value
+	handlersInterface []interface{}
+)
+
+type options struct {
+	server   *server
+	parent   bool
+	handlers []interface{}
+	methods  map[string]bool
+	path     string
 }
 
-func (f *FormFile) SetName(name string) *FormFile {
-	f.Name = name
-	return f
+func (hsi handlersInterface) AddRange(handlers []interface{}) handlersInterface {
+	return append(hsi, handlers...)
 }
 
-func (f *FormFile) SetPrem(perm os.FileMode) *FormFile {
-	f.perm = perm
-	return f
+func interfaceJoin(a, b []interface{}) handlersInterface {
+	return append(a, b...)
 }
 
-func (f *FormFile) Store(path string) error {
-	path = fmt.Sprintf("%s/%s", strings.TrimSuffix(path, "/"), f.Name)
-	return ioutil.WriteFile(path, f.Data, f.perm)
+func pathJoin(s ...string) string {
+	return path.Join(s...)
 }
 
-type Request struct {
-	Response http.ResponseWriter
-	*http.Request
-	params map[string]string
-}
-
-func (r *Request) SetHeader(key, value string) {
-	r.Response.Header().Set(key, value)
-}
-
-func (r *Request) GetHeader(key string) string {
-	return r.Response.Header().Get(key)
-}
-
-func (r *Request) Write(data interface{}) {
-	_, _ = r.Response.Write(valueBytes(reflect.ValueOf(data)))
-}
-
-func (r *Request) Param(key string) string {
-	return r.params[key]
-}
-
-func (r *Request) TryParamGet(key string, out *string) (ok bool) {
-	value := r.params[key]
-
-	if value == "" {
-		return false
+func initRouter(o *options) *router {
+	var _handlers = parseFunc(o.server, o.parent, o.handlers)
+	var route = &router{
+		Path:       o.path,
+		Match:      createRequestRegular(getRegular(o.path)),
+		WhereMatch: nil,
+		Params:     getPattern(o.path),
+		Methods:    o.methods,
+		Handlers:   _handlers,
 	}
-	*out = value
-	return true
+	route.HandlerFunc = route.ServeHTTP
+	_handlers.SetRouter(route)
+	o.server.routers = append(o.server.routers, route)
+	return route
 }
 
-func (r *Request) TryParamGetInt(key string, out *int64) (ok bool) {
-	value, err := strconv.ParseInt(r.params[key], 10, 64)
+func trimPrefixAndSuffix(s string) string {
+	s = strings.TrimPrefix(s, "/")
+	s = strings.TrimSuffix(s, "/")
+
+	if len(s) < 1 {
+		s = "/"
+	}
+
+	return s
+}
+
+func leftAndRightContact(a, b string) string {
+	return fmt.Sprintf("%s/%s", strings.TrimSuffix(a, "/"), strings.TrimPrefix(b, "/"))
+}
+
+func createRequestRegular(regular string) *regexp.Regexp {
+
+	var compile, err = regexp.Compile(regular)
 
 	if err != nil {
-		return false
+		panic(err)
 	}
 
-	 *out = value
-
-	return true
+	return compile
 }
 
-func (r *Request) TryParamGetUInt(key string, out *uint64) (ok bool) {
+func rebuildRouters(s *server) {
+	var routes routers
 
-	value, err := strconv.ParseUint(r.params[key], 10, 64)
-
-	if err != nil {
-		return false
-	}
-
-	*out = value
-
-	return true
-}
-
-func (r *Request) TryParamGetFloat(key string, out *float64) (ok bool) {
-	value, err := strconv.ParseFloat(r.params[key], 10)
-
-	if err != nil {
-		return false
-	}
-
-	*out = value
-
-	return true
-}
-
-func (r *Request) TryParamGetBool(key string, out *bool) (ok bool) {
-
-	value, err := strconv.ParseBool(r.params[key])
-
-	if err != nil {
-		return false
-	}
-
-	*out = value
-
-	return true
-}
-
-func (r *Request) ParamGetInt(key string) (value int64) {
-	value, _ = strconv.ParseInt(r.params[key], 10, 64)
-	return value
-}
-
-func (r *Request) ParamGetUInt(key string) (value uint64) {
-	value, _ = strconv.ParseUint(r.params[key], 10, 64)
-	return value
-}
-
-func (r *Request) ParamGetFloat(key string) (value float64) {
-	value, _ = strconv.ParseFloat(r.params[key], 10)
-	return value
-}
-
-func (r *Request) ParamGetBool(key string) (value bool) {
-	value, _ = strconv.ParseBool(r.params[key])
-	return value
-}
-
-func (r *Request) Query(key string) string {
-	return r.URL.Query().Get(key)
-}
-
-func (r *Request) TryQueryGet(key string, out *string) (ok bool) {
-
-	value := r.URL.Query().Get(key)
-
-	if value == "" {
-		return false
-	}
-	*out = value
-	return true
-}
-
-func (r *Request) TryQueryGetInt(key string, out *int64) (ok bool) {
-
-	value, err := strconv.ParseInt(r.URL.Query().Get(key), 10, 64)
-
-	if err != nil {
-		return false
-	}
-
-	*out = value
-
-	return true
-}
-
-func (r *Request) TryQueryGetUInt(key string, out *uint64) (ok bool) {
-
-	value, err := strconv.ParseUint(r.URL.Query().Get(key), 10, 64)
-
-	if err != nil {
-		return false
-	}
-
-	*out = value
-
-	return true
-}
-
-func (r *Request) TryQueryGetFloat(key string, out *float64) (ok bool) {
-	value, err := strconv.ParseFloat(r.URL.Query().Get(key), 10)
-
-	if err != nil {
-		return false
-	}
-
-	*out = value
-
-	return true
-}
-
-func (r *Request) TryQueryGetBool(key string, out *bool) (ok bool) {
-
-	value, err := strconv.ParseBool(r.URL.Query().Get(key))
-
-	if err != nil {
-		return false
-	}
-
-	*out = value
-
-	return true
-}
-
-func (r *Request) QueryGetInt(key string) (value int64) {
-	value, _ = strconv.ParseInt(r.URL.Query().Get(key), 10, 64)
-	return value
-}
-
-func (r *Request) QueryGetUInt(key string) (value uint64) {
-	value, _ = strconv.ParseUint(r.URL.Query().Get(key), 10, 64)
-	return value
-}
-
-func (r *Request) QueryGetFloat(key string) (value float64) {
-	value, _ = strconv.ParseFloat(r.URL.Query().Get(key), 10)
-	return value
-}
-
-func (r *Request) QueryGetBool(key string) (value bool) {
-	value, _ = strconv.ParseBool(r.URL.Query().Get(key))
-	return value
-}
-
-func (r *Request) FormFile(key string) (*FormFile, error) {
-
-	_, file, err := r.Request.FormFile(key)
-
-	if err != nil {
-		return nil, err
-	}
-
-	var formFile = &FormFile{
-		Name:   file.Filename,
-		perm:   os.FileMode(0644),
-		Data:   make([]byte, file.Size),
-		Size:   file.Size,
-		Header: file.Header,
-	}
-
-	fOpen, err := file.Open()
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer func(fOpen multipart.File) {
-		err = fOpen.Close()
-	}(fOpen)
-
-	_, err = fOpen.Read(formFile.Data)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return formFile, nil
-}
-
-func isThrow(val reflect.Value, w http.ResponseWriter) bool {
-	switch t := val.Interface().(type) {
-	case Throw:
-		data := valueBytes(reflect.ValueOf(t.Data))
-		w.WriteHeader(t.StatusCode)
-		w.Header().Set("Content-Type", t.ContentType)
-		_, _ = w.Write(data)
-		return true
-	case *Throw:
-		data := valueBytes(reflect.ValueOf(t.Data))
-		w.WriteHeader(t.StatusCode)
-		w.Header().Set("Content-Type", t.ContentType)
-		_, _ = w.Write(data)
-		return true
-	}
-	return false
-}
-
-func isResponse(val reflect.Value, w http.ResponseWriter) bool {
-	switch t := val.Interface().(type) {
-	case Data:
-		data := valueBytes(reflect.ValueOf(t.Data))
-		if t.ContentDisposition != "" {
-			w.Header().Set("Content-Disposition", t.ContentDisposition)
+	for _, r := range s.routers {
+		if !strings.Contains(r.Path, ":") && !strings.Contains(r.Path, "*") {
+			routes = append(routes, r)
 		}
-		if t.ContentType != "" {
-			w.Header().Set("Content-Type", t.ContentType)
-		}
-		_, _ = w.Write(data)
-		return true
-	case *Data:
-		data := valueBytes(reflect.ValueOf(t.Data))
-		if t.ContentDisposition != "" {
-			w.Header().Set("Content-Disposition", t.ContentDisposition)
-		}
-		if t.ContentType != "" {
-			w.Header().Set("Content-Type", t.ContentType)
-		}
-		_, _ = w.Write(data)
-		return true
 	}
-	return false
+
+	for _, r := range s.routers {
+		if strings.Contains(r.Path, ":") && !strings.Contains(r.Path, "*") {
+			routes = append(routes, r)
+		}
+	}
+
+	var routesStar = routers{}
+
+	for _, r := range s.routers {
+		if strings.Contains(r.Path, "*") {
+			routesStar = append(routesStar, r)
+		}
+	}
+
+	sort.Slice(routesStar, func(i, j int) bool {
+		return len(routesStar[i].Path) > len(routesStar[j].Path)
+	})
+
+	s.routers = append(routes, routesStar...)
 }
 
-func isFileResponse(val reflect.Value, w http.ResponseWriter, r *http.Request) bool {
-	switch t := val.Interface().(type) {
-	case File:
-		t.stream(w, r)
-		return true
-	case *File:
-		t.stream(w, r)
-		return true
+func showUrl(s *server, addr string) {
+	showAddr := strings.TrimSuffix(addr, "/")
+
+	if strings.HasPrefix(addr, ":") {
+		showAddr = "http://localhost" + showAddr
 	}
-	return false
+
+	showAddr += "/"
+
+	bigLen := 0
+
+	for _, r := range s.routers {
+		if len(showAddr+r.Path) > bigLen {
+			bigLen = len(showAddr + r.Path)
+		}
+	}
+
+	for _, r := range s.routers {
+		var methods []string
+
+		for s, _ := range r.Methods {
+			methods = append(methods, s)
+		}
+
+		path := showAddr + strings.TrimPrefix(r.Path, "/")
+
+		pathLen := len(path) - 1
+
+		if pathLen < bigLen {
+			fmt.Println("path-> ", path, strings.Repeat(" ", bigLen-pathLen), " methods ", strings.Join(methods, ","))
+		} else {
+			fmt.Println("path-> ", path, " methods ", strings.Join(methods, ","))
+		}
+	}
 }
 
-func valueBytes(value reflect.Value) []byte {
-
-	if value.Kind() == reflect.Ptr {
-		value = value.Elem()
-	}
-
-	switch value.Kind() {
-
-	case reflect.Bool:
-		var boolBit = "false"
-		if value.Bool() {
-			boolBit = "true"
+func getRegular(urlPath string) string {
+	urlPath = path.Clean(urlPath)
+	{
+		if urlPath == "." || urlPath == "/" {
+			return "^(/)$"
 		}
-		return []byte(boolBit)
-	case reflect.Int,
-		reflect.Int8,
-		reflect.Int16,
-		reflect.Int32,
-		reflect.Int64:
-		return []byte(strconv.FormatInt(value.Int(), 10))
-	case reflect.Uint,
-		reflect.Uint8,
-		reflect.Uint16,
-		reflect.Uint32,
-		reflect.Uint64:
-		return []byte(strconv.FormatUint(value.Uint(), 10))
-	case reflect.Float32,
-		reflect.Float64:
-		return []byte(strconv.FormatFloat(value.Float(), 'f', -1, 64))
-	case reflect.String:
-		return []byte(value.String())
-	case reflect.Struct, reflect.Slice, reflect.Interface, reflect.Map:
-		toByte, _ := json.Marshal(value.Interface())
-		return toByte
+		urlPath = strings.TrimPrefix(urlPath, "/")
 	}
+
+	if index := strings.Index(urlPath, "*"); index != -1 {
+		urlPath = urlPath[0 : index+1]
+	}
+	urlPath = strings.Replace(urlPath, "*", "(.*)?", -1)
+	var regular = regexp.MustCompile(`(:[a-zA-Z]+)`)
+	urlPath = regular.ReplaceAllString(urlPath, `([0-9a-zA-Z]+)`)
+	return fmt.Sprintf("^(/?%s/?)$", urlPath)
+}
+
+func getPattern(urlPath string) []string {
+	var regular = regexp.MustCompile(`(:[a-zA-Z]+)`)
+
+	if result := regular.FindAllString(urlPath, -1); len(result) > 0 {
+		var str = strings.Replace(strings.Join(result, " "), ":", "", -1)
+		return strings.Split(str, " ")
+	}
+
+	return []string{}
+}
+
+func parseFunc(s *server, parent bool, actions []interface{}) handlers {
+
+	for i, action := range actions {
+		switch a := action.(type) {
+		case http.Handler:
+			actions[i] = a.ServeHTTP
+		}
+	}
+
+	if len(actions) < 1 && !parent {
+		panic("Must be move 1 handler")
+	}
+
+	var (
+		_handlers handlers
+	)
+
+	for a, action := range actions {
+
+		funcValue := reflect.ValueOf(action)
+
+		if funcValue.Kind() != reflect.Func {
+			log.Fatalln("dont supported this type:", funcValue.Kind())
+		}
+
+		funcType := funcValue.Type()
+
+		var (
+			params     []reflect.Type
+			parseParam = map[reflect.Type]func(http.ResponseWriter, *http.Request, *handler) reflect.Value{}
+		)
+
+		for i := 0; i < funcType.NumIn(); i++ {
+			var inType = funcType.In(i)
+			params = append(params, inType)
+			if prm := getParseFunc(inType, s); prm != nil {
+				parseParam[inType] = prm
+			}
+		}
+
+		var handler = &handler{
+			Server:     s,
+			Params:     params,
+			ParseParam: parseParam,
+			Call:       funcValue.Call,
+			Last:       len(actions)-1 == a && !parent,
+		}
+
+		_handlers = append(_handlers, handler)
+	}
+
+	return _handlers
+}
+
+func getParseFunc(key reflect.Type, s *server) func(http.ResponseWriter, *http.Request, *handler) reflect.Value {
+
+	switch key {
+	case httpRes:
+		return func(w http.ResponseWriter, r *http.Request, h *handler) reflect.Value {
+			return reflect.ValueOf(w)
+		}
+	case httpReq:
+		return func(w http.ResponseWriter, r *http.Request, h *handler) reflect.Value {
+			return reflect.ValueOf(r)
+		}
+	case request:
+		return func(w http.ResponseWriter, r *http.Request, h *handler) reflect.Value {
+			ctx := context.WithValue(r.Context(), "params", &request2.Params{
+				Keys:  h.Router.Params,
+				Match: h.Router.Match,
+			})
+			return reflect.ValueOf(request2.NewRequest(w, r.WithContext(ctx)))
+		}
+	case iFormFile:
+		return func(w http.ResponseWriter, r *http.Request, h *handler) reflect.Value {
+			return reflect.ValueOf(request2.NewFormFile(w, r))
+		}
+	}
+
+	if value := s.GetByType(key); value.IsValid() {
+		return func(w http.ResponseWriter, r *http.Request, h *handler) reflect.Value {
+			return s.GetByType(key)
+		}
+	}
+
+	if isBodyObject(key) {
+		return func(w http.ResponseWriter, r *http.Request, h *handler) reflect.Value {
+			return read(key, r)
+		}
+	}
+
 	return nil
 }
 
-func setOther(param reflect.Type, request *http.Request, w http.ResponseWriter) *reflect.Value {
+func isBodyObject(key reflect.Type) bool {
 
-	_value := reflect.New(param)
-
-	err := json.NewDecoder(request.Body).Decode(_value.Interface())
-
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write(expectsJSON)
-		log.Println(err)
-		return nil
+	if key.Kind() == reflect.Ptr {
+		key = key.Elem()
 	}
 
-	val := _value.Elem()
+	switch key.Kind() {
+	case
+		reflect.Bool,
+		reflect.Int,
+		reflect.Int8,
+		reflect.Int16,
+		reflect.Int32,
+		reflect.Int64,
+		reflect.Uint,
+		reflect.Uint8,
+		reflect.Uint16,
+		reflect.Uint32,
+		reflect.Uint64,
+		reflect.Uintptr,
+		reflect.Float32,
+		reflect.Float64,
+		reflect.Complex64,
+		reflect.Complex128,
+		reflect.Array,
+		reflect.Chan,
+		reflect.Func,
+		reflect.String,
+		reflect.UnsafePointer:
+		return false
+	}
 
-	return &val
+	return true
 }
