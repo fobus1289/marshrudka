@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	request2 "github.com/fobus1289/marshrudka/router/request"
 	"log"
@@ -23,6 +24,7 @@ var (
 	iParam           = reflect.TypeOf((*request2.IParam)(nil)).Elem()
 	iQueryParam      = reflect.TypeOf((*request2.IQueryParam)(nil)).Elem()
 	whatWentWrong    = []byte("what went wrong :(")
+	whatWentWrongErr = errors.New(string(whatWentWrong))
 	emptyBody        = []byte("empty body :(")
 	methodNotAllowed = []byte("method not allowed")
 )

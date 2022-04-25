@@ -50,7 +50,14 @@ func (h *handler) Next(w http.ResponseWriter, r *http.Request, pm reflectMap) bo
 	defer func() {
 		if err := recover(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write(whatWentWrong)
+
+			_err, _ := err.(error)
+			{
+				if _err == nil {
+					_err = whatWentWrongErr
+				}
+			}
+			_, _ = w.Write(writeJson(h.Server.runtimeError(_err)))
 		}
 	}()
 
@@ -74,7 +81,7 @@ func (h *handler) Next(w http.ResponseWriter, r *http.Request, pm reflectMap) bo
 			pm[param] = value
 		} else {
 			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write(emptyBody)
+			_, _ = w.Write(writeJson(h.Server.bodyEOF()))
 			return false
 		}
 

@@ -20,5 +20,11 @@ func NewServer() IServer {
 		services:          reflectMap{},
 		HandlersInterface: handlersInterface{},
 		routers:           routers{},
+		runtimeError: func(err error) interface{} {
+			return whatWentWrongErr.Error()
+		},
+		bodyEOF: func() interface{} {
+			return string(emptyBody)
+		},
 	}
 }

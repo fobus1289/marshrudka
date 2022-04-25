@@ -20,6 +20,8 @@ type server struct {
 	services          reflectMap
 	HandlersInterface handlersInterface
 	routers           routers
+	runtimeError      func(err error) interface{}
+	bodyEOF           func() interface{}
 }
 
 func (s *shutdown) start() {
@@ -44,6 +46,14 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !s.routers.Find(w, r) {
 		http.NotFound(w, r)
 	}
+}
+
+func (s *server) RuntimeError(handler func(err error) interface{}) {
+	s.runtimeError = handler
+}
+
+func (s *server) BodyEmpty(handler func() interface{}) {
+	s.bodyEOF = handler
 }
 
 func (s *server) Use(handlers ...interface{}) {

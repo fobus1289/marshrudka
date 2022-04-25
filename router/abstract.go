@@ -14,6 +14,8 @@ type IServer interface {
 	RunTLS(addr, certFile, keyFile string) error
 	RunAsync(addr string) error
 	RunAsyncTLS(addr, certFile, keyFile string) error
+	RuntimeError(handler func(err error) interface{})
+	BodyEmpty(handler func() interface{})
 }
 
 type IGroup interface {

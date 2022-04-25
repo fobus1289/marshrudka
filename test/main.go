@@ -106,17 +106,27 @@ func main() {
 	var server = router.NewServer()
 	server.SetService(&in)
 
+	server.BodyEmpty(func() interface{} {
+		return "no body"
+	})
+
+	server.RuntimeError(func(err error) interface{} {
+		return err.Error()
+	})
+
 	//server.GetService(&out)
 	//log.Println(out.Validate())
 
-	var userGroup = server.Group("user")
+	var userGroup = server.Group("user", func() {})
 	{
-		userGroup.POST(":id/:name", func(req request.IRequest, is []int, out *user) interface{} {
+		userGroup.POST(":id/:name", func(req request.IRequest, out *user) interface{} {
 			log.Println(req.Param("name"))
 			log.Println(req.HasParam("id"))
 			log.Println(req.HasQuery("id"))
 			log.Println(out)
-			return response.Response().Ok(200).Json(is)
+			var a *asd
+			log.Println(a.Id)
+			return response.Response().Ok(200).Json("1")
 		}).WhereIn(map[string]string{
 			"id":   `\d+`,
 			"name": `(\w+)`,
