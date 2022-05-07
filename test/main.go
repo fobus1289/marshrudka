@@ -13,16 +13,6 @@ import (
 	"sync"
 )
 
-type user struct {
-	Id     int    `form:"id" json:"id" validate:"max=1,min=0"`
-	Name   string `form:"name" json:"name" validate:"min=4,nonnil"`
-	Age    int    `form:"age" json:"age"`
-	Test   int    `form:"test" json:"test"`
-	Status bool   `form:"status" json:"status"`
-	NewVal int    `form:"comp" json:"new_val"`
-	User   *user
-}
-
 func (u *user) Validate() bool {
 	return false
 }
@@ -88,6 +78,16 @@ type qw struct {
 	A *user
 }
 
+type user struct {
+	Id     int    `form:"id" json:"id" validate:"max=1,min=0"`
+	Name   string `form:"name" json:"name" validate:"min=4,nonnil"`
+	Age    int    `form:"age" json:"age"`
+	Test   int    `form:"test" json:"test"`
+	Status bool   `form:"status" json:"status"`
+	NewVal int    `form:"comp" json:"new_val"`
+	User   request.IModel
+}
+
 func main() {
 
 	//log.Println(os.Stat("static"))
@@ -102,17 +102,24 @@ func main() {
 		NewVal: 222,
 	}
 
+	type ASD struct {
+		User request.IModel
+	}
+
 	var (
 		in = request.IModel(u)
 		//out request.IModel
 		//outStruct *user
 	)
-
+	_ = in
 	var server = router.NewServer()
 	server.SetService(&in)
-	server.FillServicesFields(&in)
-	log.Println(in.(*user).User)
-	//log.Println(kk)
+
+	//var asd1 ASD
+
+	server.FillServicesFields(&u)
+	//log.Println(in.(*user).User)
+	log.Println(u)
 	return
 	server.BodyEmpty(func() interface{} {
 		return "no body"

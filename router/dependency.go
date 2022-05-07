@@ -128,10 +128,12 @@ func (s *server) FillServiceFields(service interface{}) bool {
 		return false
 	}
 
-	if serviceElm.Kind() == reflect.Interface {
+	if serviceElm.Kind() == reflect.Interface || serviceElm.Kind() == reflect.Ptr {
 		serviceElm = serviceElm.Elem()
 		if serviceElm.Kind() == reflect.Ptr {
 			serviceLast = serviceElm.Elem()
+		} else {
+			serviceLast = serviceElm
 		}
 	} else {
 		serviceLast = serviceElm
@@ -155,7 +157,7 @@ func (s *server) FillServiceFields(service interface{}) bool {
 
 func (s *server) FillServicesFields(services ...interface{}) bool {
 	for _, service := range services {
-		if s.FillServiceFields(service) {
+		if !s.FillServiceFields(service) {
 			return false
 		}
 	}
