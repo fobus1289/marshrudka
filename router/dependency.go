@@ -1,6 +1,7 @@
 package router
 
 import (
+	"log"
 	"reflect"
 )
 
@@ -81,6 +82,84 @@ func (s *server) GetService(out interface{}) bool {
 	}
 
 	return false
+}
+
+func (s *server) SetServices(services ...interface{}) bool {
+	for _, service := range services {
+		if !s.SetService(service) {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *server) GetServices(services ...interface{}) bool {
+	for _, service := range services {
+		if !s.GetService(service) {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *server) FillServiceFields(service interface{}) bool {
+
+	if service == nil {
+		return false
+	}
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Println(err)
+		}
+	}()
+
+	var (
+		serviceValue = reflect.ValueOf(service)
+		serviceElm   = serviceValue
+		serviceLast  = serviceElm
+	)
+
+	if serviceValue.Kind() != reflect.Ptr {
+		return false
+	}
+
+	if serviceElm = serviceValue.Elem(); !serviceElm.IsValid() {
+		return false
+	}
+
+	if serviceElm.Kind() == reflect.Interface {
+		serviceElm = serviceElm.Elem()
+		if serviceElm.Kind() == reflect.Ptr {
+			serviceLast = serviceElm.Elem()
+		}
+	} else {
+		serviceLast = serviceElm
+	}
+
+	if serviceLast.NumField() == 0 {
+		return true
+	}
+
+	for i := 0; i < serviceLast.NumField(); i++ {
+		field := serviceLast.Field(i)
+		if service, ok := s.services[field.Type()]; ok {
+			if field.CanSet() {
+				field.Set(service)
+			}
+		}
+	}
+
+	return true
+}
+
+func (s *server) FillServicesFields(services ...interface{}) bool {
+	for _, service := range services {
+		if s.FillServiceFields(service) {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *server) GetByType(t reflect.Type) reflect.Value {

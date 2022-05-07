@@ -48,6 +48,10 @@ type IUse interface {
 type IDependency interface {
 	SetService(v interface{}) bool
 	GetService(out interface{}) bool
+	SetServices(services ...interface{}) bool
+	GetServices(services ...interface{}) bool
+	FillServiceFields(service interface{}) bool
+	FillServicesFields(services ...interface{}) bool
 }
 
 type IService interface {

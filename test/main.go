@@ -20,6 +20,7 @@ type user struct {
 	Test   int    `form:"test" json:"test"`
 	Status bool   `form:"status" json:"status"`
 	NewVal int    `form:"comp" json:"new_val"`
+	User   *user
 }
 
 func (u *user) Validate() bool {
@@ -83,6 +84,10 @@ func (a *asd) Validate() bool {
 //go:embed static/dist/*
 var frontend embed.FS
 
+type qw struct {
+	A *user
+}
+
 func main() {
 
 	//log.Println(os.Stat("static"))
@@ -105,7 +110,10 @@ func main() {
 
 	var server = router.NewServer()
 	server.SetService(&in)
-
+	server.FillServicesFields(&in)
+	log.Println(in.(*user).User)
+	//log.Println(kk)
+	return
 	server.BodyEmpty(func() interface{} {
 		return "no body"
 	})
