@@ -1,6 +1,8 @@
 package request
 
 import (
+	"encoding/json"
+	"encoding/xml"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -102,4 +104,12 @@ func getBitSize(in interface{}) int {
 	default:
 		return 64
 	}
+}
+
+func (r *request) Json(i interface{}) error {
+	return json.NewDecoder(r.r.Body).Decode(i)
+}
+
+func (r *request) Xml(i interface{}) error {
+	return xml.NewDecoder(r.r.Body).Decode(i)
 }

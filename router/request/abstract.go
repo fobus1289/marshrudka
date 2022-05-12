@@ -56,29 +56,28 @@ type IRequestParser interface {
 	Form() reflect.Value
 }
 
-type IModel interface {
-	Validate() bool
-}
-
 type IRequest interface {
 	IParam
 	IQueryParam
+	IBody
 	FormFile() IFormFile
 	Request() *http.Request
 	Response() http.ResponseWriter
 }
 
 type IParam interface {
-	Param(key string) string
+	Param(key string) String
 	HasParam(key string) bool
 	TryGetParam(key string, in interface{}) bool
 }
 
 type IQueryParam interface {
-	Query(key string) string
+	Query(key string) String
 	HasQuery(key string) bool
 	TryGetQuery(key string, in interface{}) bool
 }
 
 type IBody interface {
+	Json(interface{}) error
+	Xml(interface{}) error
 }

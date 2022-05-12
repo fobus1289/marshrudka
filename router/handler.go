@@ -2,6 +2,8 @@ package router
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	request2 "github.com/fobus1289/marshrudka/router/request"
 	"github.com/fobus1289/marshrudka/router/response"
 	"net/http"
@@ -50,11 +52,10 @@ func (h *handler) Next(w http.ResponseWriter, r *http.Request, pm reflectMap) bo
 	defer func() {
 		if err := recover(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-
 			_err, _ := err.(error)
 			{
 				if _err == nil {
-					_err = whatWentWrongErr
+					_err = errors.New(fmt.Sprintf("%v", err))
 				}
 			}
 			_, _ = w.Write(writeJson(h.Server.runtimeError(_err)))
@@ -187,8 +188,7 @@ func read(param reflect.Type, req *http.Request) reflect.Value {
 	var contentType = req.Header.Get("Content-Type")
 	var requestParser = request2.NewBodyParser(param, req)
 
-	if strings.HasPrefix(contentType, "multipart/form-data") ||
-		strings.HasSuffix(contentType, "application/x-www-form-urlencoded") {
+	if strings.HasPrefix(contentType, "multipart/form-data") {
 		return requestParser.Form()
 	}
 

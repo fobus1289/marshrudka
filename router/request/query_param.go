@@ -4,8 +4,8 @@ import (
 	"strings"
 )
 
-func (r *request) Query(key string) string {
-	return r.r.URL.Query().Get(key)
+func (r *request) Query(key string) String {
+	return String(r.r.URL.Query().Get(key))
 }
 
 func (r *request) HasQuery(key string) bool {

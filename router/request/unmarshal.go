@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"github.com/gorilla/schema"
-	"gopkg.in/validator.v2"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -49,10 +48,6 @@ func (r *bodyParser) Json() reflect.Value {
 		return reflect.Value{}
 	}
 
-	if !r.valid(value) {
-		return reflect.Value{}
-	}
-
 	if r.Type.Kind() == reflect.Ptr {
 		return value
 	}
@@ -72,10 +67,6 @@ func (r *bodyParser) Xml() reflect.Value {
 		return reflect.Value{}
 	}
 
-	if !r.valid(value) {
-		return reflect.Value{}
-	}
-
 	if r.Type.Kind() == reflect.Ptr {
 		return value
 	}
@@ -85,109 +76,73 @@ func (r *bodyParser) Xml() reflect.Value {
 
 func (r *bodyParser) Form() reflect.Value {
 
-	if r.Request.ParseMultipartForm(defaultMaxMemory) != nil || r.Request.ParseForm() != nil {
-		if len(r.Request.PostForm) == 0 {
-			return reflect.Value{}
-		}
-	}
-
 	var (
-		psvalue = r.getValue()
+		value   = r.getValue()
+		element = value.Elem()
 	)
 
-	if err := decoder.Decode(psvalue.Interface(), r.Request.PostForm); err != nil {
+	switch element.Kind() {
+	case reflect.Map, reflect.Struct:
+	case reflect.Interface:
+		if element.NumMethod() != 0 {
+			return reflect.Value{}
+		}
+	default:
 		return reflect.Value{}
-	}
-
-	if r.Type.Kind() == reflect.Ptr {
-		return psvalue
-	} else {
-		return psvalue.Elem()
 	}
 
 	_ = r.Request.ParseMultipartForm(defaultMaxMemory)
 
-	var form = r.Request.Form
-
-	if len(form) < 1 {
+	if len(r.Request.PostForm) == 0 {
 		return reflect.Value{}
 	}
 
 	var (
-		value   = r.getValue()
-		element = value.Elem()
-		inType  = element.Type()
+		form = r.Request.PostForm
 	)
 
-	if element.Kind() == reflect.Interface || element.Kind() == reflect.Map {
-		var out interface{}
-
-		switch e := element.Interface().(type) {
-		case map[string]string:
-			var m = map[string]string{}
-			for k, v := range form {
-				m[k] = v[0]
-			}
-			out = e
-		case map[string]interface{}:
-			var m = map[string]interface{}{}
-			for k, v := range form {
-				m[k] = v[0]
-			}
-			out = m
-		default:
-			var m = map[string]interface{}{}
-			for k, v := range form {
-				m[k] = v[0]
-			}
-			out = m
-		}
-
-		element.Set(reflect.ValueOf(out))
-	} else {
-
-		for i := 0; i < element.NumField(); i++ {
-			var (
-				field     = element.Field(i)
-				fieldTag  = inType.Field(i).Tag.Get("form")
-				formValue = r.Request.FormValue(fieldTag)
-			)
-
-			if !field.CanSet() || formValue == "" {
-				continue
-			}
-
-			convertForm(field, formValue)
-		}
-
-		if !r.valid(value) {
+	if element.Kind() == reflect.Struct {
+		if err := decoder.Decode(value.Interface(), form); err != nil {
 			return reflect.Value{}
+		}
+
+		if r.Type.Kind() == reflect.Ptr {
+			return value
+		} else {
+			return value.Elem()
 		}
 	}
 
+	var out interface{}
+	switch element.Interface().(type) {
+	case map[string]string:
+		var m = map[string]string{}
+		for k, v := range form {
+			m[k] = v[0]
+		}
+		out = m
+	case map[string]interface{}:
+		var m = map[string]interface{}{}
+		for k, v := range form {
+			m[k] = v[0]
+		}
+		out = m
+	default:
+		var m = map[string]interface{}{}
+		for k, v := range form {
+			m[k] = v[0]
+		}
+		out = m
+	}
+
+	element.Set(reflect.ValueOf(out))
+
 	if r.Type.Kind() == reflect.Ptr {
+
 		return value
 	}
 
 	return element
-}
-
-func (r *bodyParser) valid(value reflect.Value) bool {
-
-	var (
-		model IModel
-		ok    bool
-	)
-
-	if model, ok = value.Interface().(IModel); ok {
-		if model.Validate() {
-			if errs := validator.Validate(model); errs != nil {
-				return false
-			}
-		}
-	}
-
-	return true
 }
 
 func convertForm(field reflect.Value, convertVale string) {

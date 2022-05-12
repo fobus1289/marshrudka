@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/gorilla/schema v1.2.0
 	github.com/gorilla/websocket v1.4.2
+	golang.org/x/exp v0.0.0-20220428152302-39d4317da171
 	gopkg.in/validator.v2 v2.0.0-20210331031555-b37d688a7fb0
 )
 

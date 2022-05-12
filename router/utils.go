@@ -13,14 +13,15 @@ import (
 	"sort"
 	"strings"
 )
+import "golang.org/x/exp/constraints"
 
 var (
 	httpRes          = reflect.TypeOf((*http.ResponseWriter)(nil)).Elem()
 	iFormFile        = reflect.TypeOf((*request2.IFormFile)(nil)).Elem()
-	iModel           = reflect.TypeOf(request2.IModel(nil))
 	iService         = reflect.TypeOf((*IService)(nil)).Elem()
 	httpReq          = reflect.TypeOf(&http.Request{})
 	request          = reflect.TypeOf((*request2.IRequest)(nil)).Elem()
+	iBody            = reflect.TypeOf((*request2.IBody)(nil)).Elem()
 	iParam           = reflect.TypeOf((*request2.IParam)(nil)).Elem()
 	iQueryParam      = reflect.TypeOf((*request2.IQueryParam)(nil)).Elem()
 	whatWentWrong    = []byte("what went wrong :(")
@@ -256,7 +257,7 @@ func getParseFunc(key reflect.Type, s *server) func(http.ResponseWriter, *http.R
 		return func(w http.ResponseWriter, r *http.Request, h *handler) reflect.Value {
 			return reflect.ValueOf(r)
 		}
-	case request, iParam, iQueryParam:
+	case request, iParam, iQueryParam, iBody:
 		return func(w http.ResponseWriter, r *http.Request, h *handler) reflect.Value {
 			ctx := context.WithValue(r.Context(), "params", &request2.Params{
 				Keys:  h.Router.Params,
@@ -318,4 +319,12 @@ func isBodyObject(key reflect.Type) bool {
 	}
 
 	return true
+}
+
+type Ordered[T, E constraints.Ordered] interface {
+	constraints.Ordered
+}
+
+type Number interface {
+	constraints.Integer | constraints.Float
 }

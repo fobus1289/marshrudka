@@ -4,9 +4,9 @@ import (
 	"strings"
 )
 
-func (r *request) Param(key string) string {
+func (r *request) Param(key string) String {
 	r.parseParam()
-	return r.paramsMap[key]
+	return String(r.paramsMap[key])
 }
 
 func (r *request) HasParam(key string) bool {
