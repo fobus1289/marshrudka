@@ -3,6 +3,7 @@ package request
 import (
 	"encoding/json"
 	"encoding/xml"
+	"github.com/gorilla/schema"
 	"gopkg.in/validator.v2"
 	"net/http"
 	"reflect"
@@ -11,6 +12,10 @@ import (
 
 const (
 	defaultMaxMemory = 32 << 20 // 32 MB
+)
+
+var (
+	decoder = schema.NewDecoder()
 )
 
 func NewBodyParser(p reflect.Type, r *http.Request) IRequestParser {
@@ -80,6 +85,26 @@ func (r *bodyParser) Xml() reflect.Value {
 
 func (r *bodyParser) Form() reflect.Value {
 
+	if r.Request.ParseMultipartForm(defaultMaxMemory) != nil || r.Request.ParseForm() != nil {
+		if len(r.Request.PostForm) == 0 {
+			return reflect.Value{}
+		}
+	}
+
+	var (
+		psvalue = r.getValue()
+	)
+
+	if err := decoder.Decode(psvalue.Interface(), r.Request.PostForm); err != nil {
+		return reflect.Value{}
+	}
+
+	if r.Type.Kind() == reflect.Ptr {
+		return psvalue
+	} else {
+		return psvalue.Elem()
+	}
+
 	_ = r.Request.ParseMultipartForm(defaultMaxMemory)
 
 	var form = r.Request.Form
@@ -97,13 +122,13 @@ func (r *bodyParser) Form() reflect.Value {
 	if element.Kind() == reflect.Interface || element.Kind() == reflect.Map {
 		var out interface{}
 
-		switch element.Interface().(type) {
+		switch e := element.Interface().(type) {
 		case map[string]string:
 			var m = map[string]string{}
 			for k, v := range form {
 				m[k] = v[0]
 			}
-			out = m
+			out = e
 		case map[string]interface{}:
 			var m = map[string]interface{}{}
 			for k, v := range form {

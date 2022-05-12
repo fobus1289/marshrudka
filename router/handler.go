@@ -187,7 +187,8 @@ func read(param reflect.Type, req *http.Request) reflect.Value {
 	var contentType = req.Header.Get("Content-Type")
 	var requestParser = request2.NewBodyParser(param, req)
 
-	if strings.HasPrefix(contentType, "multipart/form-data") {
+	if strings.HasPrefix(contentType, "multipart/form-data") ||
+		strings.HasSuffix(contentType, "application/x-www-form-urlencoded") {
 		return requestParser.Form()
 	}
 

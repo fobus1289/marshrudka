@@ -4,12 +4,9 @@ import (
 	"embed"
 	"github.com/fobus1289/marshrudka/router"
 	"github.com/fobus1289/marshrudka/router/request"
-	"github.com/fobus1289/marshrudka/router/response"
 	"log"
-	"math/rand"
 	"net/http"
 	"reflect"
-	"strconv"
 	"sync"
 )
 
@@ -88,40 +85,28 @@ type user struct {
 	User   request.IModel
 }
 
+var ch = make(chan func(), 50)
+
+func a() {
+	for f1 := range ch {
+		func(c chan func()) {
+			select {
+			case f := <-ch:
+				f()
+			}
+		}(ch)
+		_ = f1
+	}
+}
+
 func main() {
 
-	//log.Println(os.Stat("static"))
-	//
+	//var strs = []string{"1", "2", "3", "4"}
+	//log.Println(strs[1:])
 	//return
-	var u = &user{
-		Id:     1,
-		Name:   "hello user",
-		Age:    18,
-		Test:   123,
-		Status: true,
-		NewVal: 222,
-	}
-
-	type ASD struct {
-		User request.IModel
-	}
-
-	var (
-		in = request.IModel(u)
-		//out request.IModel
-		//outStruct *user
-	)
-	_ = in
 	var server = router.NewServer()
-	server.SetService(&in)
 
-	//var asd1 ASD
-
-	server.FillServicesFields(&u)
-	//log.Println(in.(*user).User)
-	log.Println(u)
-	return
-	server.BodyEmpty(func() interface{} {
+	server.BodyParseError(func() interface{} {
 		return "no body"
 	})
 
@@ -129,72 +114,34 @@ func main() {
 		return err.Error()
 	})
 
-	//server.GetService(&out)
-	//log.Println(out.Validate())
+	server.GET("/", func(b [10]asd, param request.IRequest) {
+		log.Println(b)
+	})
 
-	var userGroup = server.Group("user", func() {})
-	{
-		userGroup.POST(":id/:name", func(req request.IRequest, out *user) interface{} {
-			log.Println(req.Param("name"))
-			log.Println(req.HasParam("id"))
-			log.Println(req.HasQuery("id"))
-			log.Println(out)
-			var a *asd
-			log.Println(a.Id)
-			return response.Response().Ok(200).Json("1")
-		}).WhereIn(map[string]string{
-			"id":   `\d+`,
-			"name": `(\w+)`,
-		})
+	type Us struct {
+		Id   int     `json:"id,omitempty"`
+		Name string  `json:"name,omitempty"`
+		Age  float32 `json:"age,omitempty"`
 	}
 
-	server.GET("/",
-		func(req request.IRequest) interface{} {
-			var users = make([]*user, 0, 25)
-			log.Println(u)
-			for i := 0; i < 25; i++ {
-				users = append(users,
-					&user{
-						Id:     rand.Int(),
-						Name:   strconv.FormatInt(rand.Int63(), 10),
-						Age:    rand.Int(),
-						Test:   rand.Int(),
-						Status: rand.Int()%2 == 0,
-						NewVal: rand.Int(),
-					},
-				)
-			}
-			return int8(122)
-		},
-		func(req request.IRequest) interface{} {
-			return request.IModel(&user{})
-		},
-		func(req request.IRequest) interface{} {
-			return nil
-		},
-	)
+	server.POST("/:id", func(files request.IFormFile) {
+		//var paths []string
+		for _, file := range files.Files().Get("file").Files() {
+			log.Println(file.Info().ContentType())
+		}
+	})
 
-	//go func() {
-	//	for {
-	//		time.Sleep(1000 * time.Millisecond)
-	//		server.HasClient()
-	//	}
-	//}()
-	server.GET("*/dddd", func() {
-		log.Println("dddd")
-	}).Where("*", "ddqqq")
+	server.PUT("/", func() {
+		log.Println("PUT")
+	})
 
-	server.GET("*/bb", func() {
+	server.PATCH("/", func() {
+		log.Println("PATCH")
+	})
 
-	}).Where("*", "bd")
-
-	server.GET("*/a", func() {
-
-	}).Where("*", "das")
-
-	server.GET("*/ccc", func() {
-		log.Println("fas")
-	}).Where("*", "fas")
+	server.DELETE("/", func() {
+		log.Println("DELETE")
+	})
 
 	server.GET("*", http.FileServer(http.Dir("static/dist"))).
 		Where("*", "static.*|asset.*").StripPrefix("static")

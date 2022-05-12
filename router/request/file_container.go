@@ -21,6 +21,7 @@ type formFile struct {
 	files files
 }
 
+//init TODO change once to if stm
 func (f *formFile) init() {
 	f.once.Do(func() {
 

@@ -13,6 +13,23 @@ import (
 
 var noSuchFileError = errors.New("no such file")
 
+func init() {
+	onceCloe.Do(func() {
+		go start()
+	})
+}
+
+var (
+	closes   = make(chan func(), 500)
+	onceCloe = sync.Once{}
+)
+
+func start() {
+	for fn := range closes {
+		fn()
+	}
+}
+
 func newNoSuchFile() *file {
 	return &file{
 		error: noSuchFileError,
@@ -162,7 +179,8 @@ func (f *file) open() bool {
 		if f.multipartFile, f.error = f.FileHeader.Open(); f.error != nil {
 			return
 		}
-		go func() {
+
+		closes <- func() {
 			<-f.r.Context().Done()
 			if f.multipartFile != nil {
 				_ = f.multipartFile.Close()
@@ -170,7 +188,8 @@ func (f *file) open() bool {
 			if f.osFile != nil {
 				_ = f.osFile.Close()
 			}
-		}()
+		}
+
 	})
 
 	if f.multipartFile == nil {
@@ -233,11 +252,18 @@ func (f *file) Name() string {
 }
 
 func (f *file) ContentType() string {
-	if !f.IsValid() {
+	if !f.open() {
 		return ""
 	}
 
-	return f.FileHeader.Filename
+	buf := make([]byte, 512)
+
+	if _, err := f.multipartFile.Read(buf); err != nil {
+		f.error = err
+		return ""
+	}
+
+	return http.DetectContentType(buf)
 }
 
 func (f *file) Extension() string {

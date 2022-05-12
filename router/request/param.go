@@ -26,9 +26,17 @@ func (r *request) TryGetParam(key string, in interface{}) bool {
 	return r.setType(value, in)
 }
 
+//parseParam TODO change once to if stm
 func (r *request) parseParam() {
 	r.Do(func() {
-		var params = r.params
+		var params *Params
+
+		if value := r.r.Context().Value("params"); value != nil {
+			if p, ok := value.(*Params); ok {
+				params = p
+			}
+		}
+
 		if params == nil {
 			return
 		}

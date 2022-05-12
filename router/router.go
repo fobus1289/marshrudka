@@ -22,40 +22,35 @@ type router struct {
 type routers []*router
 
 func (rs routers) Find(res http.ResponseWriter, req *http.Request) bool {
-
 	for _, route := range rs {
-		if route.Has(res, req) {
+		switch route.Has(res, req) {
+		case 0:
 			return true
+		case -1:
+			continue
 		}
 	}
-
 	return false
 }
 
-func (r *router) Has(res http.ResponseWriter, req *http.Request) bool {
+func (r *router) Has(res http.ResponseWriter, req *http.Request) int8 {
 
 	var (
 		isMatch  = r.Match.MatchString(req.URL.Path)
 		isMethod = r.Methods[req.Method]
 	)
 
-	if !isMethod && isMatch {
-		res.WriteHeader(http.StatusMethodNotAllowed)
-		_, _ = res.Write(methodNotAllowed)
-		return true
-	}
-
 	if !isMethod || !isMatch {
-		return false
+		return -1
 	}
 
 	if r.WhereMatch != nil && !r.WhereMatch.MatchString(req.URL.Path) {
-		return false
+		return -1
 	}
 
 	r.HandlerFunc(res, req)
 
-	return true
+	return 0
 }
 
 func (r *router) ServeHTTP(res http.ResponseWriter, req *http.Request) {

@@ -256,7 +256,7 @@ func getParseFunc(key reflect.Type, s *server) func(http.ResponseWriter, *http.R
 		return func(w http.ResponseWriter, r *http.Request, h *handler) reflect.Value {
 			return reflect.ValueOf(r)
 		}
-	case request:
+	case request, iParam, iQueryParam:
 		return func(w http.ResponseWriter, r *http.Request, h *handler) reflect.Value {
 			ctx := context.WithValue(r.Context(), "params", &request2.Params{
 				Keys:  h.Router.Params,
@@ -309,7 +309,7 @@ func isBodyObject(key reflect.Type) bool {
 		reflect.Float64,
 		reflect.Complex64,
 		reflect.Complex128,
-		reflect.Array,
+		//reflect.Array,
 		reflect.Chan,
 		reflect.Func,
 		reflect.String,

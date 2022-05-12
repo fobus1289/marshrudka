@@ -8,18 +8,9 @@ import (
 )
 
 func NewRequest(w http.ResponseWriter, r *http.Request) IRequest {
-	var params *Params
-
-	if value := r.Context().Value("params"); value != nil {
-		if p, ok := value.(*Params); ok {
-			params = p
-		}
-	}
-
 	return &request{
 		w:         w,
 		r:         r,
-		params:    params,
 		paramsMap: map[string]string{},
 		Once:      &sync.Once{},
 	}
@@ -30,7 +21,23 @@ type request struct {
 	r         *http.Request
 	params    *Params
 	paramsMap map[string]string
+	ifs       IFormFile
 	*sync.Once
+}
+
+func (r *request) FormFile() IFormFile {
+	if r.ifs == nil {
+		r.ifs = NewFormFile(r.w, r.r)
+	}
+	return r.ifs
+}
+
+func (r *request) Request() *http.Request {
+	return r.r
+}
+
+func (r *request) Response() http.ResponseWriter {
+	return r.w
 }
 
 func (r *request) setType(value string, in interface{}) bool {

@@ -2,6 +2,7 @@ package request
 
 import (
 	"io"
+	"net/http"
 	"os"
 	"reflect"
 )
@@ -62,6 +63,9 @@ type IModel interface {
 type IRequest interface {
 	IParam
 	IQueryParam
+	FormFile() IFormFile
+	Request() *http.Request
+	Response() http.ResponseWriter
 }
 
 type IParam interface {
@@ -74,4 +78,7 @@ type IQueryParam interface {
 	Query(key string) string
 	HasQuery(key string) bool
 	TryGetQuery(key string, in interface{}) bool
+}
+
+type IBody interface {
 }

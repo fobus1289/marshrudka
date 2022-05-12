@@ -52,7 +52,7 @@ func (s *server) RuntimeError(handler func(err error) interface{}) {
 	s.runtimeError = handler
 }
 
-func (s *server) BodyEmpty(handler func() interface{}) {
+func (s *server) BodyParseError(handler func() interface{}) {
 	s.bodyEOF = handler
 }
 
@@ -118,7 +118,7 @@ func (s *server) DELETE(path string, handlers ...interface{}) IMatch {
 		path:     path,
 		handlers: interfaceJoin(s.HandlersInterface, handlers),
 		methods: map[string]bool{
-			http.MethodPatch: true,
+			http.MethodDelete: true,
 		},
 	})
 }
