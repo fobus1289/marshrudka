@@ -1,7 +1,7 @@
 package request
 
 import (
-	"test/util"
+	"github.com/fobus1289/marshrudka/util"
 )
 
 func (r *request) ParseParam() {

@@ -2,10 +2,11 @@ package server
 
 import (
 	"net/http"
-	"test/request"
-	"test/response"
-	"test/router"
-	"test/validator"
+
+	"github.com/fobus1289/marshrudka/request"
+	"github.com/fobus1289/marshrudka/response"
+	"github.com/fobus1289/marshrudka/router"
+	"github.com/fobus1289/marshrudka/validator"
 )
 
 type (

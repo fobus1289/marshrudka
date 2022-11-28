@@ -3,8 +3,9 @@ package main
 import (
 	"log"
 	"net/http"
-	"test/router"
-	"test/validator"
+
+	"github.com/fobus1289/marshrudka/router"
+	"github.com/fobus1289/marshrudka/validator"
 )
 
 type User struct {

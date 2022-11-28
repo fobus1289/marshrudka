@@ -1,6 +1,6 @@
 package response
 
-import "test/util"
+import "github.com/fobus1289/marshrudka/util"
 
 const (
 	HTML = "text/html; charset=utf-8"

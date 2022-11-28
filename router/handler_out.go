@@ -2,7 +2,8 @@ package router
 
 import (
 	"reflect"
-	"test/response"
+
+	"github.com/fobus1289/marshrudka/response"
 )
 
 var (

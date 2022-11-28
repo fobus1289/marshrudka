@@ -5,8 +5,9 @@ import (
 	"log"
 	"net/http"
 	"reflect"
-	"test/request"
-	"test/validator"
+
+	"github.com/fobus1289/marshrudka/request"
+	"github.com/fobus1289/marshrudka/validator"
 )
 
 var (

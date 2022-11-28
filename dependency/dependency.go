@@ -4,7 +4,8 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"test/util"
+
+	"github.com/fobus1289/marshrudka/util"
 )
 
 type IDependency interface {

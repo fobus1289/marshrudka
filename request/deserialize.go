@@ -5,7 +5,8 @@ import (
 	"encoding/xml"
 	"errors"
 	"reflect"
-	"test/util"
+
+	"github.com/fobus1289/marshrudka/util"
 
 	"github.com/gorilla/schema"
 )
