@@ -1,120 +1,131 @@
 package router
 
 import (
-	"fmt"
-	request2 "github.com/fobus1289/marshrudka/router/request"
-	"log"
 	"net/http"
-	"regexp"
 	"strings"
 )
 
+type IRouter interface {
+}
+
 type router struct {
-	Path        string
-	Match       *regexp.Regexp
-	WhereMatch  *regexp.Regexp
-	HandlerFunc http.HandlerFunc
-	Params      []string
-	Methods     map[string]bool
-	Handlers    handlers
+	Path              string
+	Paths             []string
+	HttpUrlValidators []func(string) (bool, bool)
+	Handlers          handlers
+	Call              Call
+	Services          reflectMapFunc
 }
 
 type routers []*router
 
-func (rs routers) Find(res http.ResponseWriter, req *http.Request) bool {
-	for _, route := range rs {
-		switch route.Has(res, req) {
-		case 0:
-			return true
-		case -1:
+func (rs routers) Find(w http.ResponseWriter, r *http.Request) (*router, bool, map[string]string) {
+
+	var paths []string
+
+	urlPath := r.URL.Path
+	{
+		if urlPath != "/" {
+			urlPath = strings.TrimPrefix(strings.TrimSuffix(r.URL.Path, "/"), "/")
+			paths = strings.Split(urlPath, "/")
+		}
+	}
+
+	for _, router := range rs {
+
+		ok, params := router.HasUrl(urlPath, paths)
+
+		if !ok {
 			continue
 		}
-	}
-	return false
-}
 
-func (r *router) Has(res http.ResponseWriter, req *http.Request) int8 {
-
-	var (
-		isMatch  = r.Match.MatchString(req.URL.Path)
-		isMethod = r.Methods[req.Method]
-	)
-
-	if !isMethod || !isMatch {
-		return -1
+		return router, true, params
 	}
 
-	if r.WhereMatch != nil && !r.WhereMatch.MatchString(req.URL.Path) {
-		return -1
+	return nil, false, nil
+}
+
+func (r *router) HasUrl(urlPath string, paths []string) (bool, map[string]string) {
+
+	if urlPath == r.Path {
+		return true, nil
 	}
 
-	r.HandlerFunc(res, req)
+	httpUrlValidators := r.HttpUrlValidators
 
-	return 0
-}
+	if len(paths) != len(httpUrlValidators) {
+		return false, nil
+	}
 
-func (r *router) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	var pm = reflectMap{}
-	r.Handlers.Next(res, req, pm)
-}
+	var params = map[string]string{}
 
-func (r *router) Where(key, pattern string) IMatch {
-	var path = r.Path
+	for i := 0; i < len(paths); i++ {
 
-	if key != "*" {
+		validator := httpUrlValidators[i]
 
-		if !request2.InArray(key, r.Params) {
-			log.Fatalln(fmt.Sprintf("%s dont exist", key))
+		path := paths[i]
+
+		valid, hasParam := validator(path)
+
+		if !valid {
+			return false, nil
 		}
 
-		key = fmt.Sprintf(":%s", key)
-	}
-
-	path = strings.Replace(path, key, pattern, -1)
-
-	r.WhereMatch = regexp.MustCompile(fmt.Sprintf("^(/?%s/?)$", path))
-
-	return r
-}
-
-func (r *router) WhereIn(pattern map[string]string) IMatch {
-
-	var path = r.Path
-
-	for k, v := range pattern {
-		if !strings.HasPrefix(v, "(") && !strings.HasSuffix(v, ")") {
-			v = fmt.Sprintf("(%s)", v)
+		if hasParam {
+			params[r.Paths[i][1:]] = path
 		}
 
-		if k != "*" {
-			k = fmt.Sprintf(":%s", k)
-		}
-
-		var value = fmt.Sprintf("%s", v)
-		path = strings.Replace(path, k, value, 1)
 	}
 
-	r.WhereMatch = regexp.MustCompile(fmt.Sprintf("^(/?%s/?)$", path))
-
-	return r
+	return true, params
 }
 
-func (r *router) StripPrefix(prefix string) IMatch {
-	prefix = strings.Replace(prefix, " ", "", -1)
+type Routers = routers
+type Router = router
 
-	if !strings.HasPrefix(prefix, "/") {
-		prefix = fmt.Sprintf("/%s", prefix)
-	}
+func (rs routers) Len() int {
+	return len(rs)
+}
 
-	if !strings.HasSuffix(prefix, "/") {
-		prefix = fmt.Sprintf("%s/", prefix)
-	}
+func (rs routers) Swap(i, j int) {
+	rs[i], rs[j] = rs[j], rs[i]
+}
 
-	r.HandlerFunc = func(res http.ResponseWriter, req *http.Request) {
-		req.URL.Path = strings.TrimPrefix(req.URL.Path, prefix)
-		req.URL.RawPath = strings.TrimPrefix(req.URL.RawPath, prefix)
-		r.ServeHTTP(res, req)
-	}
+func (rs routers) Less(i, j int) bool {
+	return strings.Count(rs[i].Path, ":") == 0
+}
 
-	return r
+func (s *server) GET(actionPath string, handlers ...any) IRouter {
+	return newRouter(handlers, s, []string{http.MethodGet}, actionPath)
+}
+
+func (s *server) POST(actionPath string, handlers ...any) IRouter {
+	return newRouter(handlers, s, []string{http.MethodPost}, actionPath)
+}
+
+func (s *server) PUT(actionPath string, handlers ...any) IRouter {
+	return newRouter(handlers, s, []string{http.MethodPut}, actionPath)
+}
+
+func (s *server) PATCH(actionPath string, handlers ...any) IRouter {
+	return newRouter(handlers, s, []string{http.MethodPatch}, actionPath)
+}
+
+func (s *server) DELETE(actionPath string, handlers ...any) IRouter {
+	return newRouter(handlers, s, []string{http.MethodDelete}, actionPath)
+}
+
+func (s *server) MATCH(actionPath string, methods []string, handlers ...any) IRouter {
+	return newRouter(handlers, s, methods, actionPath)
+}
+
+func (s *server) ANY(actionPath string, handlers ...any) IRouter {
+	return newRouter(handlers, s, []string{
+		http.MethodGet,
+		http.MethodHead,
+		http.MethodPost,
+		http.MethodPut,
+		http.MethodPatch,
+		http.MethodDelete,
+	}, actionPath)
 }

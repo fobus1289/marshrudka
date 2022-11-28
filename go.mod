@@ -1,12 +1,8 @@
-module github.com/fobus1289/marshrudka
+module test
 
-go 1.18
+go 1.19
 
 require (
 	github.com/gorilla/schema v1.2.0
-	github.com/gorilla/websocket v1.4.2
-	golang.org/x/exp v0.0.0-20220428152302-39d4317da171
-	gopkg.in/validator.v2 v2.0.0-20210331031555-b37d688a7fb0
+	golang.org/x/exp v0.0.0-20221114191408-850992195362
 )
-
-require gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect

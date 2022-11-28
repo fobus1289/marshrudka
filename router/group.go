@@ -1,53 +1,66 @@
 package router
 
+import "path"
+
+type IGroup interface {
+	Use(handlers ...any) IGroup
+	Group(actionPath string, handlers ...any) IGroup
+	IMethod
+}
+
 type group struct {
-	Path              string
-	HandlersInterface handlersInterface
-	handlers          handlers
-	Server            *server
-	child             *group
+	Path     string
+	Parent   *group
+	Server   *server
+	Handlers []any
 }
 
-func (g *group) Use(handlers ...interface{}) {
-	g.HandlersInterface.AddRange(handlers)
-}
-
-func (g *group) Group(_path string, handlers ...interface{}) IGroup {
+func (s *server) Group(actionPath string, handlers ...any) IGroup {
 	return &group{
-		Path:              pathJoin(g.Path, _path),
-		HandlersInterface: interfaceJoin(g.HandlersInterface, handlers),
-		Server:            g.Server,
+		Path:     actionPath,
+		Server:   s,
+		Handlers: handlers,
 	}
 }
 
-func (g *group) GET(_path string, handlers ...interface{}) IMatch {
-	return g.Server.GET(pathJoin(g.Path, _path), interfaceJoin(g.HandlersInterface, handlers)...)
+func (g *group) Use(handlers ...any) IGroup {
+	g.Handlers = append(g.Handlers, handlers...)
+	return g
 }
 
-func (g *group) POST(_path string, handlers ...interface{}) IMatch {
-	return g.Server.POST(pathJoin(g.Path, _path), interfaceJoin(g.HandlersInterface, handlers)...)
+func (g *group) Group(actionPath string, handlers ...any) IGroup {
+	return &group{
+		Path:     path.Join(g.Path, actionPath),
+		Parent:   g,
+		Server:   g.Server,
+		Handlers: append(g.Handlers, handlers...),
+	}
 }
 
-func (g *group) PUT(_path string, handlers ...interface{}) IMatch {
-	return g.Server.PUT(pathJoin(g.Path, _path), interfaceJoin(g.HandlersInterface, handlers)...)
+func (g *group) GET(actionPath string, handlers ...any) IRouter {
+	return g.Server.GET(path.Join(g.Path, actionPath), append(g.Handlers, handlers...)...)
 }
 
-func (g *group) PATCH(_path string, handlers ...interface{}) IMatch {
-	return g.Server.PATCH(pathJoin(g.Path, _path), interfaceJoin(g.HandlersInterface, handlers)...)
+func (g *group) POST(actionPath string, handlers ...any) IRouter {
+	return g.Server.POST(path.Join(g.Path, actionPath), append(g.Handlers, handlers...)...)
 }
 
-func (g *group) DELETE(_path string, handlers ...interface{}) IMatch {
-	return g.Server.DELETE(pathJoin(g.Path, _path), interfaceJoin(g.HandlersInterface, handlers)...)
+func (g *group) PUT(actionPath string, handlers ...any) IRouter {
+	return g.Server.PUT(path.Join(g.Path, actionPath), append(g.Handlers, handlers...)...)
 }
 
-func (g *group) ANY(_path string, handlers ...interface{}) IMatch {
-	return g.Server.ANY(pathJoin(g.Path, _path), interfaceJoin(g.HandlersInterface, handlers)...)
+func (g *group) PATCH(actionPath string, handlers ...any) IRouter {
+	return g.Server.PATCH(path.Join(g.Path, actionPath), append(g.Handlers, handlers...)...)
 }
 
-func (g *group) MATCH(_path string, methods []string, handlers ...interface{}) IMatch {
-	return g.Server.MATCH(pathJoin(g.Path, _path), methods, interfaceJoin(g.HandlersInterface, handlers)...)
+func (g *group) DELETE(actionPath string, handlers ...any) IRouter {
+	return g.Server.DELETE(path.Join(g.Path, actionPath), append(g.Handlers, handlers...)...)
 }
 
-func (g *group) FileServer(method, path, dir string, beforeHandlers ...interface{}) {
-	g.Server.FileServer(method, path, dir, interfaceJoin(g.HandlersInterface, beforeHandlers)...)
+func (g *group) MATCH(actionPath string, methods []string, handlers ...any) IRouter {
+	return g.Server.MATCH(path.Join(g.Path, actionPath), methods, append(g.Handlers, handlers...)...)
+}
+
+func (g *group) ANY(actionPath string, handlers ...any) IRouter {
+	return g.Server.ANY(path.Join(g.Path, actionPath), append(g.Handlers, handlers...)...)
 }

@@ -1,77 +1,98 @@
 package main
 
 import (
-	"github.com/fobus1289/marshrudka/router"
 	"log"
 	"net/http"
+	"test/router"
+	"test/validator"
 )
+
+type User struct {
+	Id    int     `json:"id"`
+	Name  string  `json:"name"`
+	Roles []*Role `json:"roles"`
+}
+
+func (u *User) Validate() validator.MessageMapResult {
+	return nil
+	return validator.Build(
+		validator.NumberValidator("id", u.Id).Min(1, "id can be 0"),
+		validator.StringValidator("name", u.Name).Min(4, "name lenght len < 4"),
+		validator.ObjectsValidator("roles", u.Roles, true),
+	)
+}
+
+type Role struct {
+	Id   int64
+	Name string
+}
+
+func (r *Role) Validate() validator.MessageMapResult {
+	return validator.Build(
+		validator.NumberValidator("id", r.Id).Min(1, "id can be 0"),
+		validator.StringValidator("name", r.Name).Min(4, "name lenght len < 4"),
+	)
+}
+
+type UserService interface {
+	Get() string
+}
+
+type userService struct {
+	Id int
+}
+
+func (us *userService) Get() string {
+	return "hello user service"
+}
+
+func asd() UserService {
+	return nil
+}
 
 func main() {
 
-	var server = router.NewServer()
+	server := router.NewServer()
 
-	//multipart/form-data
-	//application/json
-	//application/xml
-	//error empty body or invalid parameter
-	//status code 400
-	server.BodyParseError(func() interface{} {
-		return "no body"
-	})
-
-	//other errors runtime nil pointer panic ...
-	//status code 500
-	server.RuntimeError(func(err error) interface{} {
-		return err.Error()
-	})
-
-	// server.GET | server.POST | server.PUT | server.PATCH | server.DELETE
-	// return value 1 types primitive types | reference types | interface{}
-
-	server.MATCH("other-MATCH-route", []string{"GET", "POST"}, func() {
-
-	})
-
-	//GET POST PUT PATCH DELETE
-	server.ANY("other-ANY-route", func() {
-
-	})
-
-	server.GET("/", func() string {
-		return "GET"
-	})
-
-	server.POST("/", func() any {
-		return struct {
-			Method string
-		}{
-			Method: "POST",
+	server.DeserializeError(func(err error) *router.RuntimeError {
+		log.Println(err)
+		return &router.RuntimeError{
+			Status: 400,
 		}
 	})
 
-	server.PUT("/", func() map[string]string {
-		return map[string]string{
-			"Method": "PUT",
+	//single
+	//scope
+	userSerice := userService{Id: 11}
+
+	server.AddScoped(func() UserService {
+		v := UserService(&userSerice)
+		return v
+	}())
+
+	server.Use(func() map[string]any {
+		return map[string]any{
+			"id":   111111,
+			"name": "asdas",
 		}
 	})
 
-	server.PATCH("/", func() any {
-		type route struct {
-			Method string `json:"method"`
-		}
+	server.UseService()
 
-		return route{
-			Method: "PATCH",
-		}
-	})
+	server.GET("/",
+		func(u *userService) int {
+			u.Id = 2222
+			log.Println(u)
+			return 2143421
+		},
+		func(u UserService, user *User, m map[string]any) int {
+			log.Println(u, "2")
+			log.Println(user)
+			log.Println(userSerice)
+			log.Println(m)
+			return 121
+		},
+	)
 
-	server.DELETE("/", func() bool {
-		return true
-	})
-
-	//example file
-	server.GET("*", http.FileServer(http.Dir("static/dist"))).
-		Where("*", "static.*|asset.*").StripPrefix("static")
-
-	log.Fatalln(server.Run(":8080"))
+	http.ListenAndServe(":8081", server)
 }

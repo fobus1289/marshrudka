@@ -1,189 +1,87 @@
 package router
 
 import (
-	"log"
 	"net/http"
-	"strings"
-	"sync"
-	"sync/atomic"
 )
 
-type shutdown struct {
-	*sync.Mutex
-	request chan *http.Request
-	counter bool
+type IMethod interface {
+	GET(actionPath string, handlers ...any) IRouter
+	POST(actionPath string, handlers ...any) IRouter
+	PUT(actionPath string, handlers ...any) IRouter
+	PATCH(actionPath string, handlers ...any) IRouter
+	DELETE(actionPath string, handlers ...any) IRouter
+	MATCH(actionPath string, methods []string, handlers ...any) IRouter
+	ANY(actionPath string, handlers ...any) IRouter
+}
+
+type IServer interface {
+	ServeHTTP(w http.ResponseWriter, r *http.Request)
+	Use(handlers ...any) IServer
+	Group(actionPath string, handlers ...any) IGroup
+	AddScoped(scoped any) IServer
+	AddSingleton(singleton any) IServer
+	DeserializeError(cb func(error) *RuntimeError)
+	UseService()
+	IMethod
+}
+
+func NewServer() IServer {
+
+	deserializeErrorFunc := &RuntimeError{
+		Status:      http.StatusBadRequest,
+		ContentType: "text/plain; charset=utf-8",
+	}
+
+	runtimeErrorFunc := &RuntimeError{
+		Status:      http.StatusInternalServerError,
+		ContentType: "text/plain; charset=utf-8",
+	}
+
+	return &server{
+		Services: reflectMapFunc{},
+		Routers:  map[string]routers{},
+		Call: func(_ *handlerParam) bool {
+			return false
+		},
+		DeserializeErrorFunc: func(err error) *RuntimeError {
+			return deserializeErrorFunc
+		},
+		RuntimeErrorFunc: func(err error) *RuntimeError {
+			return runtimeErrorFunc
+		},
+	}
 }
 
 type server struct {
-	clients           int32
-	shutdown          *shutdown
-	services          reflectMap
-	HandlersInterface handlersInterface
-	routers           routers
-	runtimeError      func(err error) interface{}
-	bodyEOF           func() interface{}
+	Routers              map[string]routers
+	Handlers             []*handler
+	Call                 Call
+	Scopeds              []any
+	Singletons           []any
+	Services             reflectMapFunc
+	PersistentService    reflectMap
+	DeserializeErrorFunc func(error) *RuntimeError
+	RuntimeErrorFunc     func(error) *RuntimeError
 }
 
-func (s *shutdown) start() {
-	for request := range s.request {
-		s.Lock()
-		s.counter = true
-		<-request.Context().Done()
-		s.counter = false
-		s.Unlock()
-	}
-}
+func (s *server) Use(handlers ...any) IServer {
 
-func (s *server) HasClient() bool {
-	log.Println(s.clients)
-	return s.shutdown.counter
-}
+	s.Handlers = newHandlers(handlers, s)
 
-func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	//s.shutdown.request <- r
-	//atomic.AddInt32(&s.clients, 1)
-	defer atomic.AddInt32(&s.clients, -1)
-	if !s.routers.Find(w, r) {
-		http.NotFound(w, r)
-	}
-}
+	calles := moreHandler(s.Handlers)
 
-func (s *server) RuntimeError(handler func(err error) interface{}) {
-	s.runtimeError = handler
-}
-
-func (s *server) BodyParseError(handler func() interface{}) {
-	s.bodyEOF = handler
-}
-
-func (s *server) Use(handlers ...interface{}) {
-	s.HandlersInterface = interfaceJoin(s.HandlersInterface, handlers)
-}
-
-func (s *server) Group(path string, handlers ...interface{}) IGroup {
-	return &group{
-		Path:              path,
-		HandlersInterface: interfaceJoin(s.HandlersInterface, handlers),
-		Server:            s,
-	}
-}
-
-func (s *server) GET(path string, handlers ...interface{}) IMatch {
-	return initRouter(&options{
-		server:   s,
-		path:     path,
-		handlers: interfaceJoin(s.HandlersInterface, handlers),
-		methods: map[string]bool{
-			http.MethodGet: true,
-		},
-	})
-}
-
-func (s *server) POST(path string, handlers ...interface{}) IMatch {
-	return initRouter(&options{
-		server:   s,
-		path:     path,
-		handlers: interfaceJoin(s.HandlersInterface, handlers),
-		methods: map[string]bool{
-			http.MethodPost: true,
-		},
-	})
-}
-
-func (s *server) PUT(path string, handlers ...interface{}) IMatch {
-	return initRouter(&options{
-		server:   s,
-		path:     path,
-		handlers: interfaceJoin(s.HandlersInterface, handlers),
-		methods: map[string]bool{
-			http.MethodPut: true,
-		},
-	})
-}
-
-func (s *server) PATCH(path string, handlers ...interface{}) IMatch {
-	return initRouter(&options{
-		server:   s,
-		path:     path,
-		handlers: interfaceJoin(s.HandlersInterface, handlers),
-		methods: map[string]bool{
-			http.MethodPatch: true,
-		},
-	})
-}
-
-func (s *server) DELETE(path string, handlers ...interface{}) IMatch {
-	return initRouter(&options{
-		server:   s,
-		path:     path,
-		handlers: interfaceJoin(s.HandlersInterface, handlers),
-		methods: map[string]bool{
-			http.MethodDelete: true,
-		},
-	})
-}
-
-func (s *server) ANY(path string, handlers ...interface{}) IMatch {
-	return initRouter(&options{
-		server:   s,
-		path:     path,
-		handlers: interfaceJoin(s.HandlersInterface, handlers),
-		methods: map[string]bool{
-			http.MethodGet:    true,
-			http.MethodPost:   true,
-			http.MethodPut:    true,
-			http.MethodPatch:  true,
-			http.MethodDelete: true,
-		},
-	})
-}
-
-func (s *server) MATCH(path string, methods []string, handlers ...interface{}) IMatch {
-
-	if len(methods) < 1 {
-		panic("MATCH error")
+	s.Call = func(param *handlerParam) (stop bool) {
+		for _, call := range calles {
+			return call(param)
+		}
+		return
 	}
 
-	var mapMethods = map[string]bool{}
+	return s
+}
 
-	for _, method := range methods {
-		mapMethods[strings.ToUpper(method)] = true
+func (s *server) DeserializeError(cb func(error) *RuntimeError) {
+	if cb != nil {
+		s.DeserializeErrorFunc = cb
 	}
-
-	return initRouter(&options{
-		server:   s,
-		path:     path,
-		handlers: interfaceJoin(s.HandlersInterface, handlers),
-		methods:  mapMethods,
-	})
-}
-
-func (s *server) FileServer(method, path, dir string, BeforeHandlers ...interface{}) {
-	initRouter(&options{
-		server:   s,
-		path:     path,
-		handlers: interfaceJoin(interfaceJoin(s.HandlersInterface, BeforeHandlers), []interface{}{http.FileServer(http.Dir(dir))}),
-		methods: map[string]bool{
-			strings.ToUpper(method): true,
-		},
-	})
-}
-
-func (s *server) Run(addr string) error {
-	rebuildRouters(s)
-	go s.shutdown.start()
-	showUrl(s, addr)
-	return http.ListenAndServe(addr, s)
-}
-
-func (s *server) RunTLS(addr, certFile, keyFile string) error {
-	panic("implement me")
-}
-
-func (s *server) RunAsync(addr string) error {
-	panic("implement me")
-}
-
-func (s *server) RunAsyncTLS(addr, certFile, keyFile string) error {
-	panic("implement me")
 }
