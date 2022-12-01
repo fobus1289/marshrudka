@@ -2,6 +2,8 @@ package router
 
 import (
 	"net/http"
+
+	"github.com/fobus1289/marshrudka/request"
 )
 
 type IMethod interface {
@@ -21,6 +23,8 @@ type IServer interface {
 	AddScoped(scoped any) IServer
 	AddSingleton(singleton any) IServer
 	DeserializeError(cb func(error) *RuntimeError)
+	RuntimeError(cb func(error) *RuntimeError)
+	UseAuth(*request.Jwt)
 	UseService()
 	IMethod
 }
@@ -58,6 +62,7 @@ type server struct {
 	Call                 Call
 	Scopeds              []any
 	Singletons           []any
+	Jwt                  *request.Jwt
 	Services             reflectMapFunc
 	PersistentService    reflectMap
 	DeserializeErrorFunc func(error) *RuntimeError
@@ -84,4 +89,14 @@ func (s *server) DeserializeError(cb func(error) *RuntimeError) {
 	if cb != nil {
 		s.DeserializeErrorFunc = cb
 	}
+}
+
+func (s *server) RuntimeError(cb func(error) *RuntimeError) {
+	if cb != nil {
+		s.RuntimeErrorFunc = cb
+	}
+}
+
+func (s *server) UseAuth(jwt *request.Jwt) {
+	s.Jwt = jwt
 }

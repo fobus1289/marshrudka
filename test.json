@@ -1,0 +1,12 @@
+{
+    "id": {
+        "min": "id \u003c 1",
+        "omit": "omit"
+    },
+    "name": {
+        "email": "email"
+    },
+    "roles": {
+        "min": "role \u003c 1"
+    }
+}

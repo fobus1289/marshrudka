@@ -1,59 +1,124 @@
 package validator
 
-type AnyArray interface {
-	~[]int | ~[]int8 | ~[]int16 | ~[]int32 | ~[]int64 |
-		~[]uint | ~[]uint8 | ~[]uint16 | ~[]uint32 | ~[]uint64 | ~[]uintptr |
-		~[]float32 | ~[]float64 |
-		~[]string | ~string
-}
-
 type Array[T AnyArray] struct {
-	*AnyType[T, int]
+	Key   string
+	Value []T
+	Message
+	Optional bool
 }
 
-func ArrayValidator[T AnyArray](key string, t T) *Array[T] {
-	array := &Array[T]{
-		&AnyType[T, int]{
-			value: t,
-			key:   key,
-		},
+func ArrayValidator[T AnyArray](key string, value []T) *Array[T] {
+	return &Array[T]{
+		Key:      key,
+		Value:    value,
+		Message:  Message{},
+		Optional: false,
 	}
-	return array
 }
 
-func (ar *Array[T]) Min(min int, message string) *Array[T] {
-	ar.AddMessage(len(ar.value) < min, "min", message, min)
-	return ar
+func (arr *Array[T]) Options(optional bool) *Array[T] {
+	arr.Optional = optional
+	return arr
 }
 
-func (ar *Array[T]) Max(max int, message string) *Array[T] {
-	ar.AddMessage(len(ar.value) > max, "max", message, max)
-	return ar
+func (arr *Array[T]) Min(min int, message string) *Array[T] {
+
+	if arr.Optional && arr.Value == nil {
+		return arr
+	}
+
+	if len(arr.Value) < min {
+		arr.Add(arr.Key, "min", message, arr.Value)
+	}
+	return arr
 }
 
-func (ar *Array[T]) Required(message string) *Array[T] {
-	l := len(ar.value)
-	ar.AddMessage(l == 0, "required", message, l)
-	return ar
+func (arr *Array[T]) Max(max int, message string) *Array[T] {
+
+	if arr.Optional && arr.Value == nil {
+		return arr
+	}
+
+	if len(arr.Value) > max {
+		arr.Add(arr.Key, "max", message, arr.Value)
+	}
+	return arr
 }
 
-func (ar *Array[T]) Lenght(min, max int, message string) *Array[T] {
-	var f int
+func (arr *Array[T]) Null(message string) *Array[T] {
 
-	var isInvalid bool
-	{
-		l := len(ar.value)
+	if arr.Optional && arr.Value == nil {
+		return arr
+	}
 
-		if l < min {
-			f = min
-			isInvalid = true
-		} else if l > max {
-			f = max
-			isInvalid = true
+	if arr.Value == nil {
+		arr.Add(arr.Key, "null", message, arr.Value)
+	}
+
+	return arr
+}
+
+func (arr *Array[T]) Empty(message string) *Array[T] {
+
+	if arr.Optional && arr.Value == nil {
+		return arr
+	}
+
+	if len(arr.Value) == 0 {
+		arr.Add(arr.Key, "empty", message, arr.Value)
+	}
+
+	return arr
+}
+
+func (arr *Array[T]) Lenght(min, max int, message string) *Array[T] {
+
+	if arr.Optional && arr.Value == nil {
+		return arr
+	}
+
+	l := len(arr.Value)
+
+	if l < min || l > max {
+		arr.Add(arr.Key, "lenght", message, arr.Value)
+	}
+
+	return arr
+}
+
+func (arr *Array[T]) Omit(message string, a T) *Array[T] {
+
+	if arr.Optional && arr.Value == nil {
+		return arr
+	}
+
+	for _, v := range arr.Value {
+		if v == a {
+			arr.Add(arr.Key, "omit", message, v)
+			return arr
 		}
 	}
 
-	ar.AddMessage(isInvalid, "lenght", message, f)
+	return arr
+}
 
-	return ar
+func (arr *Array[T]) Only(message string, a T) *Array[T] {
+
+	if arr.Optional && arr.Value == nil {
+		return arr
+	}
+
+	for _, v := range arr.Value {
+		if v == a {
+			return arr
+		}
+	}
+
+	arr.Add(arr.Key, "only", message, arr.Value)
+
+	return arr
+}
+
+func (arr *Array[T]) ErrorMessage() Message {
+	return arr.Message
 }

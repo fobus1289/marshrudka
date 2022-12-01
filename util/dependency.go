@@ -5,10 +5,6 @@ import (
 	"reflect"
 )
 
-func parseStruct(st any) {
-
-}
-
 func ParseFunc(fn any) (reflect.Type, reflect.Value) {
 
 	defer func() {

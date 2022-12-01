@@ -2,9 +2,11 @@ package router
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"reflect"
+	"strings"
 
 	"github.com/fobus1289/marshrudka/request"
 	"github.com/fobus1289/marshrudka/validator"
@@ -21,6 +23,7 @@ var (
 	requestData      = reflect.TypeOf((*IRequestData)(nil)).Elem()
 	httpRequestType  = reflect.TypeOf(&http.Request{})
 	validatorType    = reflect.TypeOf((*validator.IValidator)(nil)).Elem()
+	jwtUserType      = reflect.TypeOf((*request.IJwtUser)(nil)).Elem()
 	emptyValue       = reflect.Value{}
 )
 
@@ -131,6 +134,61 @@ func deserialize(t reflect.Type, s *server) paramFunc {
 
 	param := t
 
+	if s.Jwt != nil && param.Implements(jwtUserType) {
+		jwt := s.Jwt
+
+		paramType := param
+		{
+			if paramType.Kind() == reflect.Interface {
+				panic("paramType.Kind() == reflect.Interface")
+			}
+
+			for paramType.Kind() == reflect.Ptr {
+				paramType = paramType.Elem()
+			}
+
+		}
+
+		return func(hp *handlerParam) (reflect.Value, *RuntimeError) {
+			session := hp.SessionData[paramType]
+
+			if session.Kind() == reflect.Invalid {
+
+				authorization := hp.Request.Header.Get("Authorization")
+				authorization = strings.TrimPrefix(authorization, "Bearer ")
+
+				newValue := reflect.New(paramType)
+
+				jwtUser, ok := newValue.Interface().(request.IJwtUser)
+
+				if !ok {
+					err := errors.New("invalid jwt user type")
+					return emptyValue, &RuntimeError{
+						Error:       err,
+						Status:      http.StatusUnauthorized,
+						ContentType: "application/json; charset=utf-8",
+						Data:        []byte(err.Error()),
+					}
+				}
+
+				if err := jwt.DecodeWithExpired(authorization, jwtUser); err != nil {
+					return emptyValue, &RuntimeError{
+						Error:       err,
+						Status:      http.StatusUnauthorized,
+						ContentType: "application/json; charset=utf-8",
+						Data:        []byte(err.Error()),
+					}
+				}
+
+				session = newValue
+
+				hp.SessionData[paramType] = session
+			}
+
+			return session, nil
+		}
+	}
+
 	if !param.Implements(validatorType) {
 		return func(hp *handlerParam) (reflect.Value, *RuntimeError) {
 			return hp.SessionData[param], nil
@@ -154,8 +212,8 @@ func deserialize(t reflect.Type, s *server) paramFunc {
 				value = newValue.Elem()
 
 				if valid, ok := value.Interface().(validator.IValidator); ok {
-					mapResult := valid.Validate()
-					if mapResult != nil && !mapResult.IsValid() {
+					mapResult := valid.Validate(hp.Request.Method)
+					if len(mapResult) != 0 {
 						data, _ := json.Marshal(mapResult)
 						return emptyValue, &RuntimeError{
 							Status:      http.StatusBadRequest,

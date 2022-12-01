@@ -2,7 +2,6 @@ package router
 
 import (
 	"errors"
-	"log"
 	"net/http"
 )
 
@@ -11,7 +10,6 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if err := recover(); err != nil {
 			var currentErr error
-			log.Println(err)
 			switch e := err.(type) {
 			case error:
 				currentErr = e

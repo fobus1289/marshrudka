@@ -1,0 +1,40 @@
+{
+    "id": {
+        "min": "id < 1",
+        "omit": "omit"
+    },
+    "name": {
+        "email": "email"
+    },
+    "role": {
+        "id": {
+            "min": "id lenght len > 1"
+        },
+        "name": {
+            "equals": "asda",
+            "min": "name lenght len > 1"
+        }
+    },
+    "roles": {
+        "items": [
+            {
+                "id": {
+                    "min": "id lenght len > 1"
+                },
+                "name": {
+                    "equals": "asda",
+                    "min": "name lenght len > 1"
+                }
+            },
+            {
+                "id": {
+                    "min": "id lenght len > 1"
+                },
+                "name": {
+                    "equals": "asda",
+                    "min": "name lenght len > 1"
+                }
+            }
+        ]
+    }
+}

@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/fobus1289/marshrudka/request"
 )
 
 type reflectMap map[reflect.Type]reflect.Value
@@ -90,7 +92,7 @@ func newRouter(handlers []any, s *server, httpMethods []string, actionPath strin
 	route := &router{
 		Path:              urlPath,
 		Paths:             strings.Split(urlPath, "/"),
-		Call:              perpareActionHandler(newHandlers(handlers, s)),
+		Call:              perpareActionHandler(newHandlers(handlers, s), s),
 		Services:          s.Services,
 		HttpUrlValidators: validators,
 	}
@@ -222,9 +224,18 @@ func CopyValue(t reflect.Type, v reflect.Value) reflect.Value {
 	return newValue
 }
 
-func preparationOut(outType reflect.Type) (func(reflect.Value) []byte, string) {
+func preparationOut(outType reflect.Type, s *server) (func(reflect.Value) []byte, string) {
 
 	var ptrCount int
+
+	if outType.Kind() == reflect.Ptr && outType.Implements(jwtUserType) {
+		return func(v reflect.Value) []byte {
+			jwtUser := v.Interface().(request.IJwtUser)
+			token, _ := s.Jwt.Encode(jwtUser)
+			data, _ := json.Marshal(jwtUser.Out(token))
+			return data
+		}, "application/json; charset=utf-8"
+	}
 
 	for outType.Kind() == reflect.Ptr {
 		outType = outType.Elem()

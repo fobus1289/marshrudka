@@ -6,7 +6,6 @@ import (
 	"github.com/fobus1289/marshrudka/request"
 	"github.com/fobus1289/marshrudka/response"
 	"github.com/fobus1289/marshrudka/router"
-	"github.com/fobus1289/marshrudka/validator"
 )
 
 type (
@@ -21,13 +20,6 @@ type (
 	Param      = request.IParam
 	QueryParam = request.IQueryParam
 	Header     = request.IHeader
-
-	Validator            = validator.IValidator
-	ValidateErrorMessage = validator.MessageMapResult
-)
-
-var (
-	ValidatorBuild = validator.Build
 )
 
 func New() Server {

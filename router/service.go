@@ -34,13 +34,16 @@ func (s *server) UseService() {
 				}
 			}
 
-			s.Services[valueType] = func(hp *handlerParam) (reflect.Value, *RuntimeError) {
-				persistent := s.PersistentService[valueType]
+			outType := valueType.Out(0)
+
+			s.Services[outType] = func(hp *handlerParam) (reflect.Value, *RuntimeError) {
+				persistent := s.PersistentService[outType]
 				if persistent.Kind() == reflect.Invalid {
 					persistent = value.Call(nil)[0]
 				}
 				return persistent, nil
 			}
+
 			continue
 		}
 		s.Services[value.Type()] = func(hp *handlerParam) (reflect.Value, *RuntimeError) {
@@ -88,6 +91,27 @@ func (s *server) UseService() {
 				return session.Elem(), nil
 			}
 
+			continue
+		}
+
+		if value.Kind() == reflect.Func {
+
+			valueType := value.Type()
+			{
+				if valueType.NumOut() != 1 || valueType.NumIn() > 0 {
+					panic("valueType.NumOut() != 1 || valueType.NumIn() > 0")
+				}
+			}
+
+			outType := valueType.Out(0)
+
+			s.Services[outType] = func(hp *handlerParam) (reflect.Value, *RuntimeError) {
+				session := hp.SessionData[outType]
+				if session.Kind() == reflect.Invalid {
+					session = value.Call(nil)[0]
+				}
+				return session, nil
+			}
 			continue
 		}
 

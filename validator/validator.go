@@ -1,5 +1,5 @@
 package validator
 
 type IValidator interface {
-	Validate() MessageMapResult
+	Validate(httpMethod string) Message
 }

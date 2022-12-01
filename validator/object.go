@@ -2,86 +2,101 @@ package validator
 
 import (
 	"fmt"
-	"strings"
 )
 
-type Object struct {
-	Value    IValidator
-	key      string
-	messages map[string]any
-	nested   bool
+type IObjectValidator interface {
 }
 
-func ObjectValidator(key string, t IValidator, nested bool) *Object {
+type Object struct {
+	Value IValidator
+	Key   string
+	Message
+	Method   string
+	Child    []map[string]map[string]any
+	Nested   bool
+	Optional bool
+}
+
+func ObjectValidator(key string, t IValidator, methods ...string) *Object {
 	s := t
+
+	var method string
+	{
+		if len(methods) != 0 {
+			method = methods[0]
+		}
+	}
 
 	if f := fmt.Sprintf("%v", s); f == "<nil>" {
 		s = nil
 	}
 
 	return &Object{
-		Value:  s,
-		key:    key,
-		nested: nested,
+		Value:    s,
+		Key:      key,
+		Nested:   false,
+		Message:  Message{},
+		Method:   method,
+		Optional: false,
 	}
+}
+
+func (o *Object) Options(optional, nested bool) *Object {
+	o.Optional = optional
+	o.Nested = nested
+	return o
 }
 
 func (o *Object) Required(message string) *Object {
-	return o.AddMessage("required", message)
-}
 
-func (o *Object) AddMessage(name, message string) *Object {
-
-	if o.messages == nil {
-		o.messages = make(map[string]any)
+	if o.Optional && o.Value == nil {
+		return o
 	}
 
 	if o.Value == nil {
-		if _, ok := o.messages[name]; !ok {
-			o.messages[name] = o.Format(message)
-		}
+		o.Add(o.Key, "required", message, o.Value)
 	}
 
 	return o
 }
 
-func (o *Object) Format(message string) string {
-
-	if strings.Contains(message, "%v") {
-		return fmt.Sprintf(message, o.Value)
-	}
-
-	return message
-}
-
 func (o *Object) IsValid() bool {
-	o.Required("required")
-	return len(o.messages) == 0 && !o.nested
+	return o.Len() == 0
 }
 
-func (o *Object) Key() string {
-	return o.key
-}
+func (o *Object) ErrorMessage() Message {
 
-func (o *Object) Message() map[string]any {
+	if !o.Nested {
+		return o.Message
+	}
 
 	if o.Value == nil {
-		return o.messages
+		return o.Message
 	}
 
-	if !o.nested {
-		return o.messages
+	fields := o.Value.Validate(o.Method)
+
+	if fields.Len() == 0 {
+		return o.Message
 	}
 
-	child := o.Value.Validate()
+	if o.Key != "" {
+		for k, v := range fields {
 
-	if o.messages == nil {
-		o.messages = make(map[string]any)
+			if msg := o.Message[o.Key]; msg != nil {
+				msg[k] = v
+			} else {
+				o.Message[o.Key] = map[string]any{
+					k: v,
+				}
+			}
+		}
+		return o.Message
 	}
 
-	for chk, v := range child {
-		o.messages[chk] = v
+	for k, v := range fields {
+		o.Message[k] = v
 	}
 
-	return o.messages
+	return o.Message
 }

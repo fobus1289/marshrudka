@@ -1,22 +1,27 @@
 package validator
 
 type IMessage interface {
-	Message() map[string]any
-	IsValid() bool
-	Key() string
+	ErrorMessage() Message
 }
 
 type MessageMapResult map[string]any
 
-func Build(messages ...IMessage) MessageMapResult {
+func Build(messages ...IMessage) Message {
 
-	var result = MessageMapResult{}
+	var result = Message{}
 
 	for _, message := range messages {
-		if message.IsValid() || len(message.Message()) == 0 {
+
+		mgs := message.ErrorMessage()
+
+		if mgs.Len() == 0 {
 			continue
 		}
-		result[message.Key()] = message.Message()
+
+		for k, v := range mgs {
+			result[k] = v
+		}
+
 	}
 
 	return result

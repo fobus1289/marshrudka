@@ -12,19 +12,19 @@ var (
 	readyType    = reflect.TypeOf((*response.IReady)(nil)).Elem()
 )
 
-func perpareActionHandler(hs handlers) Call {
+func perpareActionHandler(hs handlers, s *server) Call {
 
 	l := len(hs)
 
 	if l == 1 {
-		return oneHandler(hs[0])
+		return oneHandler(hs[0], s)
 	}
 
 	lastIndex := l - 1
 
 	ths := hs[:lastIndex]
 
-	lastHandler := oneHandler(hs[lastIndex])
+	lastHandler := oneHandler(hs[lastIndex], s)
 
 	actions := moreHandler(ths)
 
@@ -40,7 +40,7 @@ func perpareActionHandler(hs handlers) Call {
 	}
 }
 
-func oneHandler(hs *handler) Call {
+func oneHandler(hs *handler, s *server) Call {
 
 	h := hs
 
@@ -72,7 +72,7 @@ func oneHandler(hs *handler) Call {
 		return aborted(h, outType, 0, true)
 	}
 
-	outAction, contentType := preparationOut(outTypes[0])
+	outAction, contentType := preparationOut(outTypes[0], s)
 
 	return func(param *handlerParam) (stop bool) {
 		values, stop := runtimeCheck(h, param)

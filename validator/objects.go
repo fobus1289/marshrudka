@@ -1,127 +1,167 @@
 package validator
 
-import (
-	"fmt"
-	"strings"
-)
-
-type Objects struct {
-	objects  []*Object
-	key      string
-	messages map[string]any
-	nested   bool
+type IObjectsValidator interface {
 }
 
-func ObjectsValidator[T any](key string, t []T, nested bool) *Objects {
-	var objects = &Objects{
-		key:    key,
-		nested: nested,
+type Objects struct {
+	Objects []*Object
+	Key     string
+	Method  string
+	Message
+	Nested   bool
+	Optional bool
+}
+
+func ObjectsValidator[T any](key string, t []T, methods ...string) *Objects {
+
+	var method string
+	{
+		if len(methods) != 0 {
+			method = methods[0]
+		}
 	}
+
+	if len(t) == 0 || t == nil {
+		return &Objects{
+			Key:      key,
+			Objects:  nil,
+			Nested:   false,
+			Method:   method,
+			Message:  Message{},
+			Optional: false,
+		}
+	}
+
+	var objects []*Object
 
 	for _, v := range t {
 		switch a := any(v).(type) {
 		case IValidator:
-			objects.objects = append(objects.objects, ObjectValidator(key, a, nested))
+			objects = append(objects,
+				ObjectValidator(
+					"",
+					a,
+					method,
+				),
+			)
 		}
 	}
 
-	return objects
+	return &Objects{
+		Key:      key,
+		Nested:   false,
+		Objects:  objects,
+		Message:  Message{},
+		Method:   method,
+		Optional: false,
+	}
 }
 
-func (ob *Objects) IsValid() bool {
-	ob.Required("required")
+func (ob *Objects) Options(optional, nested bool) *Objects {
+	ob.Optional = optional
+	ob.Nested = nested
+	for _, o := range ob.Objects {
+		o.Nested = nested
+		o.Optional = optional
+	}
+	return ob
+}
 
-	if !ob.nested {
-		return len(ob.messages) == 0
+func (ob *Objects) Null(message string) *Objects {
+
+	if ob.Optional && ob.Objects == nil {
+		return ob
 	}
 
-	var invalidCount int
-
-	for _, o := range ob.objects {
-		if !o.IsValid() {
-			invalidCount++
-		}
-	}
-
-	return invalidCount == 0 && len(ob.messages) == 0
-}
-
-func (ob *Objects) Key() string {
-	return ob.key
-}
-
-func (ob *Objects) Message() map[string]any {
-
-	if ob.messages == nil {
-		ob.messages = make(map[string]any)
-	}
-
-	if !ob.nested {
-		return ob.messages
-	}
-
-	for i, o := range ob.objects {
-		if o.IsValid() || len(o.Message()) == 0 {
-			continue
-		}
-		ob.messages[fmt.Sprintf("%s.%d", ob.key, i)] = o.Message()
-	}
-
-	return ob.messages
-}
-
-func (ob *Objects) Lenght(min, max int, message string) *Objects {
-
-	var f int
-
-	var isInvalid bool
-	{
-		l := len(ob.objects)
-
-		if l < min {
-			f = min
-			isInvalid = true
-		} else if l > max {
-			f = max
-			isInvalid = true
-		}
-	}
-
-	return ob.AddMessage(isInvalid, "lenght", message, f)
-}
-
-func (ob *Objects) Required(message string) *Objects {
-	return ob.AddMessage(len(ob.objects) == 0, "required", message, len(ob.objects))
-}
-
-func (ob *Objects) Min(min int, message string) *Objects {
-	return ob.AddMessage(len(ob.objects) < min, "min", message, min)
-}
-
-func (ob *Objects) Max(max int, message string) *Objects {
-	return ob.AddMessage(len(ob.objects) > max, "max", message, max)
-}
-
-func (ob *Objects) AddMessage(add bool, name, message string, lenght int) *Objects {
-
-	if ob.messages == nil {
-		ob.messages = make(map[string]any)
-	}
-
-	if add {
-		if _, ok := ob.messages[name]; !ok {
-			ob.messages[name] = ob.Format(lenght, message)
-		}
+	if ob.Objects == nil {
+		ob.Add(ob.Key, "null", message, ob.Objects)
 	}
 
 	return ob
 }
 
-func (ob *Objects) Format(lenght int, message string) string {
+func (ob *Objects) Lenght(min, max int, message string) *Objects {
 
-	if strings.Contains(message, "%v") {
-		return fmt.Sprintf(message, lenght)
+	if ob.Optional && ob.Objects == nil {
+		return ob
 	}
 
-	return message
+	l := len(ob.Objects)
+
+	if l < min || l > max {
+		ob.Add(ob.Key, "lenght", message, l)
+	}
+
+	return ob
+}
+
+func (ob *Objects) Min(min int, message string) *Objects {
+
+	if ob.Optional && ob.Objects == nil {
+		return ob
+	}
+
+	l := len(ob.Objects)
+
+	if l < min {
+		ob.Add(ob.Key, "min", message, l)
+	}
+
+	return ob
+}
+
+func (ob *Objects) Max(max int, message string) *Objects {
+
+	if ob.Optional && ob.Objects == nil {
+		return ob
+	}
+
+	l := len(ob.Objects)
+
+	if l > max {
+		ob.Add(ob.Key, "max", message, l)
+	}
+
+	return ob
+}
+
+func (ob *Objects) ErrorMessage() Message {
+
+	if !ob.Nested {
+		return ob.Message
+	}
+
+	if len(ob.Objects) == 0 {
+		return ob.Message
+	}
+
+	messages := []any{}
+
+	for _, object := range ob.Objects {
+		if object.Value == nil {
+			continue
+		}
+
+		fields := object.ErrorMessage()
+
+		if len(fields) == 0 {
+			continue
+		}
+
+		messages = append(messages, fields)
+	}
+
+	if len(messages) == 0 {
+		return ob.Message
+	}
+
+	if message := ob.Message[ob.Key]; message != nil {
+		message["items"] = messages
+	} else {
+		ob.Message[ob.Key] = map[string]any{
+			"items": messages,
+		}
+	}
+
+	return ob.Message
 }
